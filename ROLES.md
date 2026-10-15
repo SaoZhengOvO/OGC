@@ -2,6 +2,14 @@
 
 > **第一次来先看 [`START-HERE.md`](START-HERE.md)** —— 从零到跑出第一个分数的五步命令、常见坑、硬约束。
 > **还不知道自己该挑哪条线？看 [`docs/roles/CHOOSE.md`](docs/roles/CHOOSE.md)** —— 每条线的活儿、需要的底子、难度风险，按强项对号入座。
+> **想直接开工？把 [`docs/roles/ONBOARD.md`](docs/roles/ONBOARD.md) 整段丢给 AI** —— 它会问清你的分工、用 `tools/assign_role.py` 把你的 GitHub 用户名写进下表，再把环境跑起来。
+
+> 下表最后一列是**当前负责人**。认领后请自己登记（或让 AI 登记），这样别人才知道这条线有人：
+>
+> ```bash
+> python tools/assign_role.py --line 2 --owner 你的GitHub用户名   # 线号：1 / 2 / 3 / 4 / 5A / 5B
+> python tools/assign_role.py --list                             # 看全队认领情况
+> ```
 
 本仓库是「2026 动感地带 AI+ 高校创智计划」AI 技术赛道赛题二**数字人综合情感陪伴对话模型**的参赛工程。
 
