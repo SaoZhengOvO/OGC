@@ -106,8 +106,11 @@ python src\cli.py build
 # 冒烟：5 条，验证链路通不通
 .venv\Scripts\python.exe tools\eval_loop.py --tag smoke --limit 5 --backend transformers
 
-# 全量基线：2,354 条
-.venv\Scripts\python.exe tools\eval_loop.py --tag baseline --backend transformers
+# 官方裸基线：2,354 条 —— 必须显式指定官方那棵树，默认跑的不是它
+.venv\Scripts\python.exe tools\eval_loop.py --tag baseline --backend transformers --inference-script official
+
+# 我们要提交的那棵树：2,354 条
+.venv\Scripts\python.exe tools\eval_loop.py --tag wired --backend transformers
 ```
 
 **默认跑的是哪份推理脚本**：`deploy/participant/run_inference.py` —— **我们要提交的那棵树**，
@@ -116,6 +119,12 @@ python src\cli.py build
 `bash /root/participant/start.sh TEST_FILE RESULT_DIR`（`GivenData/participant/README.md:80-86`，
 「确保脚本位置无更改」）——跑的是容器里那份。跑分前工具还会 `probe_wiring()` 问接线层自己走了哪条路，
 把答案写进日志，并在台账的 `script` / `prompts` 两列留证。
+
+> **这两个列并非每行都有值**，别把它当成台账能自证出处：只有**真的跑了推理**的行才有；
+> `--skip-inference` 重新打分的行写 `(skip)`（产物来自文件，工具无法替它声明出处）；
+> `9b54fae` 之前的旧行在列头迁移时一律补 `n/a` —— **已跑完的 E1 基线就是这种**，
+> 它的出处记在 `experiments.md`。另外 `runs/` 被 `.gitignore` 覆盖，
+> **台账与各次产物都不进仓库**。
 
 `tools/eval_loop.py` 一步做完四件事：
 
