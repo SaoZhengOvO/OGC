@@ -18,11 +18,26 @@ import argparse
 import os
 import subprocess
 import sys
+import tempfile
 from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 VENV = REPO_ROOT / ".venv"
 DEFAULT_TORCH_INDEX = "https://download.pytorch.org/whl/cu130"
+
+
+def clean_env() -> dict:
+    """把临时目录显式指到系统 TEMP。
+
+    pip 在有些环境下会把解包临时目录（pip-unpack-*/、tmp*）建在**当前工作目录**，
+    也就是仓库根目录。2026-10-15 踩过一次：`git add -A` 把 1.9 GB 的 torch wheel
+    扫进了提交。这里是指到系统临时目录，`.gitignore` 里还有一道规则兜底。
+    """
+    env = os.environ.copy()
+    tmp = tempfile.gettempdir()
+    for key in ("TMPDIR", "TEMP", "TMP"):
+        env[key] = tmp
+    return env
 
 
 def venv_python() -> Path:
@@ -34,7 +49,7 @@ def venv_python() -> Path:
 def run(cmd: list[str], *, title: str, fatal: bool = True) -> int:
     print(f"\n=== {title} ===")
     print("$ " + " ".join(str(part) for part in cmd))
-    code = subprocess.run([str(part) for part in cmd], cwd=str(REPO_ROOT)).returncode
+    code = subprocess.run([str(part) for part in cmd], cwd=str(REPO_ROOT), env=clean_env()).returncode
     if code != 0:
         message = f"『{title}』失败（退出码 {code}）"
         if fatal:

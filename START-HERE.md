@@ -161,6 +161,7 @@ python -m unittest discover -s tests
 | `CUDA out of memory` | 8 GB 卡跑不动 3B。换 1.5B，或加 `--limit` 先跑小样本。 |
 | `找不到 data/processed/...` | 没跑第 4 步 `python src/cli.py build`。 |
 | 下载龟速 | 加 `--mirror https://hf-mirror.com`。 |
+| `git status` 里冒出 `pip-unpack-*` / `tmp*` / 一个 GB 级的 `.whl` | pip 把解包临时目录建在了仓库根（在根目录跑 `pip install` 就会这样）。**`.gitignore` 已经挡住它们**，正常 `git add -A` 不会带上。千万别 `git add -f`。 |
 | `git status` 里冒出 6 GB 文件 | 不该发生——`.gitignore` 已挡住 `*.safetensors`。真出现就直接 `git checkout .gitignore` 后找负责人。 |
 
 ---
