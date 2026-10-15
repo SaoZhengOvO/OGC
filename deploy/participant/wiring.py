@@ -15,8 +15,12 @@
 
 装配顺序（与 CONTRACT.md 第三节一致）：
 
-    messages = rag.fusion.build_messages(sample, retrieve(sample))
+    messages = rag.fusion.build_messages(sample, retrieve(sample), system_prompt)
     失败 → 官方 SYSTEM_PROMPT 版 messages
+
+第三个参数 `system_prompt` 是**追加式**扩展：融合层自己拿不到官方提示词，必须由这一层
+把「官方 SYSTEM_PROMPT + 队友提示词块」传下去，否则激活融合就等于把官方提示词丢了。
+融合层若只认两个位置参数（旧版），这里用 `inspect` 探测后按两参调用。
 
 检索失败不算整体失败：拿不到记忆就当没有记忆，仍然走 RAG 组包。
 """
@@ -24,6 +28,7 @@
 from __future__ import annotations
 
 import importlib
+import inspect
 import os
 import sys
 from pathlib import Path
@@ -148,6 +153,23 @@ def default_messages(
     ]
 
 
+def _accepts_system_prompt(function: Callable[..., Any]) -> bool:
+    """探测融合层的 `build_messages` 收不收第三个 `system_prompt`。
+
+    用签名探测而不是「先试三参、TypeError 再试两参」：后者会把融合层内部真正的
+    TypeError 误判成签名不匹配，从而悄悄退回官方组包，问题被掩盖。
+    """
+    try:
+        parameters = inspect.signature(function).parameters
+    except (TypeError, ValueError):
+        return False
+    if "system_prompt" in parameters:
+        return True
+    return any(
+        p.kind is inspect.Parameter.VAR_KEYWORD for p in parameters.values()
+    )
+
+
 def build_messages(
     sample: dict,
     system_prompt: str,
@@ -163,7 +185,10 @@ def build_messages(
         return fallback
     retrieved = retrieve_memories(sample)
     try:
-        produced = function(sample, retrieved)
+        if _accepts_system_prompt(function):
+            produced = function(sample, retrieved, system_prompt)
+        else:
+            produced = function(sample, retrieved)
     except Exception:  # noqa: BLE001
         return fallback
     if not _messages_are_usable(produced):
