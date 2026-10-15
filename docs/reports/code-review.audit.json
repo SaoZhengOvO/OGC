@@ -1,7 +1,7 @@
 {
   "summary": {
-    "files_scanned": 27,
-    "total_lines": 6562,
+    "files_scanned": 28,
+    "total_lines": 6946,
     "production_files": [
       "src/__init__.py",
       "src/cli.py",
@@ -28,7 +28,7 @@
     ],
     "modules_without_docstring": [],
     "parse_errors": [],
-    "public_functions": 276,
+    "public_functions": 297,
     "public_without_docstring": [
       "src/cli.py:168 cmd_eval",
       "src/cli.py:233 cmd_validate",
@@ -82,15 +82,15 @@
       "tools/emotion_profile/make_prompt.py:60 main",
       "tools/emotion_profile/make_val_input.py:43 main",
       "tools/emotion_profile/report.py:228 main",
-      "tools/eval_loop.py:73 read_jsonl",
-      "tools/eval_loop.py:81 write_jsonl",
-      "tools/eval_loop.py:147 run_step",
-      "tools/eval_loop.py:154 score",
-      "tools/eval_loop.py:178 extract_row",
-      "tools/eval_loop.py:194 format_cell",
-      "tools/eval_loop.py:202 append_leaderboard",
-      "tools/eval_loop.py:211 build_parser",
-      "tools/eval_loop.py:235 main",
+      "tools/eval_loop.py:110 read_jsonl",
+      "tools/eval_loop.py:118 write_jsonl",
+      "tools/eval_loop.py:267 run_step",
+      "tools/eval_loop.py:274 score",
+      "tools/eval_loop.py:298 extract_row",
+      "tools/eval_loop.py:314 format_cell",
+      "tools/eval_loop.py:352 append_leaderboard",
+      "tools/eval_loop.py:364 build_parser",
+      "tools/eval_loop.py:403 main",
       "tools/fetch_model.py:62 human",
       "tools/fetch_model.py:75 request",
       "tools/fetch_model.py:82 list_files",
@@ -126,6 +126,20 @@
       "tests/test_eval_loop_refs.py:65 test_raises_when_nothing_matches",
       "tests/test_eval_loop_refs.py:71 test_raises_when_scope_has_no_ids",
       "tests/test_eval_loop_refs.py:81 test_first_twenty_scope_matches_twenty_references",
+      "tests/test_eval_loop_script.py:23 test_presets",
+      "tests/test_eval_loop_script.py:33 test_default_is_the_wired_tree",
+      "tests/test_eval_loop_script.py:41 test_preset_is_case_and_space_insensitive",
+      "tests/test_eval_loop_script.py:47 test_relative_path_is_repo_root_relative",
+      "tests/test_eval_loop_script.py:53 test_absolute_path_is_untouched",
+      "tests/test_eval_loop_script.py:59 test_known_trees",
+      "tests/test_eval_loop_script.py:63 test_missing_script",
+      "tests/test_eval_loop_script.py:67 test_unknown_copy_is_detected_by_content",
+      "tests/test_eval_loop_script.py:85 test_reports_team_prompt_block",
+      "tests/test_eval_loop_script.py:101 test_official_tree_has_no_wiring_layer",
+      "tests/test_eval_loop_script.py:115 test_old_rows_are_padded_not_shifted",
+      "tests/test_eval_loop_script.py:132 test_migration_is_idempotent",
+      "tests/test_eval_loop_script.py:145 test_empty_file_is_left_alone",
+      "tests/test_eval_loop_script.py:153 test_append_writes_header_once_then_appends",
       "tests/test_fusion.py:43 make_sample",
       "tests/test_fusion.py:57 setUp",
       "tests/test_fusion.py:67 write_prompt",
@@ -268,15 +282,15 @@
       "tools/emotion_profile/make_prompt.py:60 main",
       "tools/emotion_profile/make_val_input.py:43 main",
       "tools/emotion_profile/report.py:228 main",
-      "tools/eval_loop.py:73 read_jsonl",
-      "tools/eval_loop.py:81 write_jsonl",
-      "tools/eval_loop.py:147 run_step",
-      "tools/eval_loop.py:154 score",
-      "tools/eval_loop.py:178 extract_row",
-      "tools/eval_loop.py:194 format_cell",
-      "tools/eval_loop.py:202 append_leaderboard",
-      "tools/eval_loop.py:211 build_parser",
-      "tools/eval_loop.py:235 main",
+      "tools/eval_loop.py:110 read_jsonl",
+      "tools/eval_loop.py:118 write_jsonl",
+      "tools/eval_loop.py:267 run_step",
+      "tools/eval_loop.py:274 score",
+      "tools/eval_loop.py:298 extract_row",
+      "tools/eval_loop.py:314 format_cell",
+      "tools/eval_loop.py:352 append_leaderboard",
+      "tools/eval_loop.py:364 build_parser",
+      "tools/eval_loop.py:403 main",
       "tools/fetch_model.py:62 human",
       "tools/fetch_model.py:75 request",
       "tools/fetch_model.py:82 list_files",
@@ -320,9 +334,9 @@
       "docs/reports/pack_review.py:104 render_manifest",
       "docs/reports/pack_review.py:137 main"
     ],
-    "public_without_docstring_tests": 81,
+    "public_without_docstring_tests": 95,
     "public_without_return_annotation": [
-      "tools/eval_loop.py:73 read_jsonl",
+      "tools/eval_loop.py:110 read_jsonl",
       "tools/fetch_model.py:75 request",
       "tests/test_fusion.py:346 legacy",
       "tests/test_wiring.py:62 boom",
@@ -332,10 +346,10 @@
     ],
     "public_without_param_annotations": [
       "tools/bootstrap.py:61 main -> ['argv']",
-      "tools/eval_loop.py:81 write_jsonl -> ['rows']",
-      "tools/eval_loop.py:147 run_step -> ['cmd', 'env']",
-      "tools/eval_loop.py:194 format_cell -> ['value']",
-      "tools/eval_loop.py:235 main -> ['argv']",
+      "tools/eval_loop.py:118 write_jsonl -> ['rows']",
+      "tools/eval_loop.py:267 run_step -> ['cmd', 'env']",
+      "tools/eval_loop.py:314 format_cell -> ['value']",
+      "tools/eval_loop.py:403 main -> ['argv']",
       "tools/fetch_model.py:198 main -> ['argv']",
       "tests/test_fusion.py:43 make_sample -> ['**overrides']",
       "tests/test_fusion.py:346 legacy -> ['sample', 'retrieved']",
@@ -412,7 +426,7 @@
         "length": 121
       },
       {
-        "place": "tools/eval_loop.py:218",
+        "place": "tools/eval_loop.py:371",
         "length": 125
       },
       {
@@ -1687,21 +1701,21 @@
     },
     {
       "file": "tools/eval_loop.py",
-      "lines": 333,
+      "lines": 545,
       "text_checks_skipped": false,
       "module_docstring": true,
       "parse_error": null,
       "public_functions": [
         {
           "name": "read_jsonl",
-          "line": 73,
+          "line": 110,
           "docstring": false,
           "missing_annotations": [],
           "missing_return": true
         },
         {
           "name": "write_jsonl",
-          "line": 81,
+          "line": 118,
           "docstring": false,
           "missing_annotations": [
             "rows"
@@ -1709,22 +1723,50 @@
           "missing_return": false
         },
         {
+          "name": "resolve_repo_path",
+          "line": 128,
+          "docstring": true,
+          "missing_annotations": [],
+          "missing_return": false
+        },
+        {
+          "name": "resolve_inference_script",
+          "line": 134,
+          "docstring": true,
+          "missing_annotations": [],
+          "missing_return": false
+        },
+        {
+          "name": "script_kind",
+          "line": 142,
+          "docstring": true,
+          "missing_annotations": [],
+          "missing_return": false
+        },
+        {
+          "name": "probe_wiring",
+          "line": 159,
+          "docstring": true,
+          "missing_annotations": [],
+          "missing_return": false
+        },
+        {
           "name": "build_val_input",
-          "line": 91,
+          "line": 211,
           "docstring": true,
           "missing_annotations": [],
           "missing_return": false
         },
         {
           "name": "write_reference_subset",
-          "line": 118,
+          "line": 238,
           "docstring": true,
           "missing_annotations": [],
           "missing_return": false
         },
         {
           "name": "run_step",
-          "line": 147,
+          "line": 267,
           "docstring": false,
           "missing_annotations": [
             "cmd",
@@ -1734,21 +1776,21 @@
         },
         {
           "name": "score",
-          "line": 154,
+          "line": 274,
           "docstring": false,
           "missing_annotations": [],
           "missing_return": false
         },
         {
           "name": "extract_row",
-          "line": 178,
+          "line": 298,
           "docstring": false,
           "missing_annotations": [],
           "missing_return": false
         },
         {
           "name": "format_cell",
-          "line": 194,
+          "line": 314,
           "docstring": false,
           "missing_annotations": [
             "value"
@@ -1756,22 +1798,29 @@
           "missing_return": false
         },
         {
+          "name": "migrate_leaderboard_header",
+          "line": 322,
+          "docstring": true,
+          "missing_annotations": [],
+          "missing_return": false
+        },
+        {
           "name": "append_leaderboard",
-          "line": 202,
+          "line": 352,
           "docstring": false,
           "missing_annotations": [],
           "missing_return": false
         },
         {
           "name": "build_parser",
-          "line": 211,
+          "line": 364,
           "docstring": false,
           "missing_annotations": [],
           "missing_return": false
         },
         {
           "name": "main",
-          "line": 235,
+          "line": 403,
           "docstring": false,
           "missing_annotations": [
             "argv"
@@ -1786,7 +1835,7 @@
       "markers": [],
       "long_lines": [
         {
-          "line": 218,
+          "line": 371,
           "length": 125
         }
       ],
@@ -2189,6 +2238,157 @@
           "length": 121
         }
       ],
+      "cjk_identifiers": [],
+      "bare_excepts": [],
+      "has_main_guard": true
+    },
+    {
+      "file": "tests/test_eval_loop_script.py",
+      "lines": 172,
+      "text_checks_skipped": false,
+      "module_docstring": true,
+      "parse_error": null,
+      "public_functions": [
+        {
+          "name": "test_presets",
+          "line": 23,
+          "docstring": false,
+          "missing_annotations": [],
+          "missing_return": true
+        },
+        {
+          "name": "test_default_is_the_wired_tree",
+          "line": 33,
+          "docstring": false,
+          "missing_annotations": [],
+          "missing_return": true
+        },
+        {
+          "name": "test_preset_is_case_and_space_insensitive",
+          "line": 41,
+          "docstring": false,
+          "missing_annotations": [],
+          "missing_return": true
+        },
+        {
+          "name": "test_relative_path_is_repo_root_relative",
+          "line": 47,
+          "docstring": false,
+          "missing_annotations": [],
+          "missing_return": true
+        },
+        {
+          "name": "test_absolute_path_is_untouched",
+          "line": 53,
+          "docstring": false,
+          "missing_annotations": [],
+          "missing_return": true
+        },
+        {
+          "name": "test_known_trees",
+          "line": 59,
+          "docstring": false,
+          "missing_annotations": [],
+          "missing_return": true
+        },
+        {
+          "name": "test_missing_script",
+          "line": 63,
+          "docstring": false,
+          "missing_annotations": [],
+          "missing_return": true
+        },
+        {
+          "name": "test_unknown_copy_is_detected_by_content",
+          "line": 67,
+          "docstring": false,
+          "missing_annotations": [],
+          "missing_return": true
+        },
+        {
+          "name": "test_official_original_really_has_no_wiring",
+          "line": 76,
+          "docstring": true,
+          "missing_annotations": [],
+          "missing_return": true
+        },
+        {
+          "name": "test_reports_team_prompt_block",
+          "line": 85,
+          "docstring": false,
+          "missing_annotations": [],
+          "missing_return": true
+        },
+        {
+          "name": "test_empty_prompt_dir_reports_none",
+          "line": 93,
+          "docstring": true,
+          "missing_annotations": [],
+          "missing_return": true
+        },
+        {
+          "name": "test_official_tree_has_no_wiring_layer",
+          "line": 101,
+          "docstring": false,
+          "missing_annotations": [],
+          "missing_return": true
+        },
+        {
+          "name": "test_old_rows_are_padded_not_shifted",
+          "line": 115,
+          "docstring": false,
+          "missing_annotations": [],
+          "missing_return": true
+        },
+        {
+          "name": "test_migration_is_idempotent",
+          "line": 132,
+          "docstring": false,
+          "missing_annotations": [],
+          "missing_return": true
+        },
+        {
+          "name": "test_empty_file_is_left_alone",
+          "line": 145,
+          "docstring": false,
+          "missing_annotations": [],
+          "missing_return": true
+        },
+        {
+          "name": "test_append_writes_header_once_then_appends",
+          "line": 153,
+          "docstring": false,
+          "missing_annotations": [],
+          "missing_return": true
+        }
+      ],
+      "private_functions": 1,
+      "classes": [
+        {
+          "name": "TestResolveScript",
+          "line": 20,
+          "docstring": true
+        },
+        {
+          "name": "TestScriptKind",
+          "line": 58,
+          "docstring": false
+        },
+        {
+          "name": "TestProbeWiring",
+          "line": 82,
+          "docstring": true
+        },
+        {
+          "name": "TestLeaderboardMigration",
+          "line": 106,
+          "docstring": true
+        }
+      ],
+      "windows_abs_path": [],
+      "container_abs_path": [],
+      "markers": [],
+      "long_lines": [],
       "cjk_identifiers": [],
       "bare_excepts": [],
       "has_main_guard": true

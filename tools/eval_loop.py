@@ -4,19 +4,34 @@
 这是全队共用的「裁判」：任何提示词 / RAG / 模型改动，都用同一条命令、同一份验证集打分，
 结果追加到 runs/leaderboard.tsv，避免各人报不同的数、互相没法比。
 
+跑的到底是哪份脚本（重要）
+--------------------------
+主办方唯一会执行的是 `bash /root/participant/start.sh TEST_FILE RESULT_DIR`，见
+`GivenData/participant/README.md`「唯一运行命令」一节 —— 也就是**我们容器里的那份**，
+不是 `GivenData/` 里的官方原件。所以默认跑的是 `deploy/participant/run_inference.py`
+（带接线层，会加载队友的 `prompts/` 与 `rag/`）；`GivenData/participant/` 那份**没有接线层**，
+拿它当默认会让你以为提示词没效果。
+
+    --inference-script wired        # 默认：我们要提交的那棵树
+    --inference-script official     # 官方裸基线，做对照用
+    --inference-script <路径>       # 其它，相对路径以仓库根为基准
+
 用法
 ----
     # 1) 小样本冒烟（先跑这个，确认链路通）
     python tools/eval_loop.py --tag smoke --limit 20
 
-    # 2) 全量（默认 transformers 后端，模型目录来自 inference_config.json）
+    # 2) 全量（默认 transformers 后端）
     python tools/eval_loop.py --tag baseline
 
-    # 3) 指向共享推理服务（vLLM / Ollama，AMD 机器或咪咕平台上的都行）
+    # 3) 官方裸基线对照跑
+    python tools/eval_loop.py --tag official-baseline --inference-script official
+
+    # 4) 指向共享推理服务（vLLM / Ollama，AMD 机器或咪咕平台上的都行）
     python tools/eval_loop.py --tag r1 --backend openai_compatible \
         --base-url http://127.0.0.1:8000/v1 --api-model Qwen2.5-3B-Instruct
 
-    # 4) 已经跑出 submission.jsonl，只重新打分
+    # 5) 已经跑出 submission.jsonl，只重新打分
     python tools/eval_loop.py --tag r1 --skip-inference \
         --predictions runs/eval-r1/submission.jsonl
 
@@ -47,9 +62,27 @@ from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 PROCESSED = REPO_ROOT / "data" / "processed"
-PARTICIPANT = REPO_ROOT / "GivenData" / "participant"
-INFERENCE_SCRIPT = PARTICIPANT / "run_inference.py"
 RUNS = REPO_ROOT / "runs"
+
+# 两棵参赛树。主办方跑的是**我们容器里的**那份（见 GivenData/participant/README.md
+# 「唯一运行命令」：`bash /root/participant/start.sh TEST_FILE RESULT_DIR`，
+# 「确保脚本位置无更改」），所以默认用 deploy 那棵；GivenData 那棵是**没有接线层**
+# 的官方原件，只在做裸基线对照时用。
+OFFICIAL_PARTICIPANT = REPO_ROOT / "GivenData" / "participant"
+WIRED_PARTICIPANT = REPO_ROOT / "deploy" / "participant"
+PARTICIPANT = WIRED_PARTICIPANT  # 旧引用兼容；别再拿它去找模型
+SCRIPT_PRESETS = {
+    "wired": WIRED_PARTICIPANT / "run_inference.py",
+    "official": OFFICIAL_PARTICIPANT / "run_inference.py",
+}
+INFERENCE_SCRIPT = SCRIPT_PRESETS["wired"]
+# deploy 树里没有 model/（5.9 GB 不复制第二份），两份 inference_config.json 却都写
+# "./model" 且以**工具目录**为基准 —— 换了脚本不同时指定模型，模型就会找不到。
+DEFAULT_MODEL_PATH = OFFICIAL_PARTICIPANT / "model"
+# 镜像里 prompts/ 是 deploy/build.sh 从仓库根拷进 /root/participant/prompts 的，
+# 本地没有这一步；不显式指回来就会**静默**退化成官方提示词，量到的数不对应提交的那棵树。
+DEFAULT_PROMPT_DIR = REPO_ROOT / "prompts"
+
 DEFAULT_SOURCE = PROCESSED / "val_samples.jsonl"
 DEFAULT_REFERENCES = PROCESSED / "val_references.jsonl"
 LEADERBOARD = RUNS / "leaderboard.tsv"
@@ -60,6 +93,10 @@ LEADERBOARD_COLUMNS = (
     "tag",
     "backend",
     "model",
+    # 这两列是「同一条命令量到的到底是什么」的证据：没有它们，一行数字分不出
+    # 是官方裸基线还是带队友提示词/RAG 的那棵树。
+    "script",
+    "prompts",
     "n_samples",
     "n_comparable",
     "emotion_acc",
@@ -86,6 +123,89 @@ def write_jsonl(path: Path, rows) -> int:
             handle.write(json.dumps(row, ensure_ascii=False, separators=(",", ":")) + "\n")
             count += 1
     return count
+
+
+def resolve_repo_path(value: str | Path) -> Path:
+    """绝对路径原样，相对路径以**仓库根**为基准（不是当前目录）。"""
+    path = Path(str(value)).expanduser()
+    return path if path.is_absolute() else (REPO_ROOT / path)
+
+
+def resolve_inference_script(value: str) -> Path:
+    """把 `wired` / `official` 两个简写或一个路径解析成推理脚本。"""
+    key = str(value).strip()
+    if key.lower() in SCRIPT_PRESETS:
+        return SCRIPT_PRESETS[key.lower()]
+    return resolve_repo_path(key)
+
+
+def script_kind(script: Path) -> str:
+    """这份推理脚本会不会加载队友的提示词与 RAG：`wired` / `official` / `missing`。
+
+    先认两棵已知的树；认不出来才看内容里有没有接线层的 import，这样有人把 deploy
+    那份拷到别处也还能认对。
+    """
+    resolved = script.resolve()
+    for name, preset in SCRIPT_PRESETS.items():
+        if resolved == preset.resolve():
+            return name
+    try:
+        text = script.read_text(encoding="utf-8")
+    except OSError:
+        return "missing"
+    return "wired" if "import wiring" in text else "official"
+
+
+def probe_wiring(prompt_dir: Path, participant_dir: Path, *, timeout: int = 60) -> dict:
+    """问接线层自己「这一趟走了哪条路」，而不是我们在外面猜。
+
+    必须在**子进程**里 import wiring，两个原因：`PROMPT_DIR` 是模块级常量，import
+    那一刻就从环境变量求值，同一进程里再 import 不会重算；而且父进程（尤其 pytest）
+    的 sys.path 通常已经含仓库根，`rag.*` 会假性 import 成功，报出根本走不通的路。
+    """
+    wiring_py = participant_dir / "wiring.py"
+    if not wiring_py.is_file():
+        return {"available": False, "reason": f"{wiring_py} 不存在"}
+
+    code = (
+        "import json, sys; "
+        f"sys.path.insert(0, {str(participant_dir)!r}); "
+        "import wiring; "
+        "print(json.dumps(wiring.describe(), ensure_ascii=False))"
+    )
+    env = os.environ.copy()
+    env["PARTICIPANT_PROMPT_DIR"] = str(prompt_dir)
+    try:
+        completed = subprocess.run(
+            [sys.executable, "-c", code],
+            cwd=str(REPO_ROOT),
+            env=env,
+            capture_output=True,
+            encoding="utf-8",
+            errors="replace",
+            timeout=timeout,
+        )
+    except (OSError, subprocess.SubprocessError) as error:
+        return {"available": False, "reason": f"探测接线层失败：{error}"}
+
+    if completed.returncode != 0:
+        stderr_lines = [line for line in (completed.stderr or "").splitlines() if line.strip()]
+        return {
+            "available": False,
+            "reason": stderr_lines[-1] if stderr_lines else "接线层 import 失败",
+        }
+
+    stdout_lines = [line for line in (completed.stdout or "").splitlines() if line.strip()]
+    if not stdout_lines:
+        return {"available": False, "reason": "接线层没有输出"}
+    try:
+        info = json.loads(stdout_lines[-1])
+    except ValueError:
+        return {"available": False, "reason": "接线层输出了非 JSON"}
+    if not isinstance(info, dict):
+        return {"available": False, "reason": "接线层输出的不是对象"}
+    info["available"] = True
+    return info
 
 
 def build_val_input(source: Path, out_path: Path, limit: int | None, offset: int) -> int:
@@ -199,12 +319,45 @@ def format_cell(value) -> str:
     return str(value)
 
 
+def migrate_leaderboard_header(path: Path, columns: tuple[str, ...]) -> bool:
+    """台账列变过就按**列名**重排，老行缺的列补 n/a。返回是否改动了文件。
+
+    不这么做的话，老表头 11 格、新行 13 格，整个台账会错位 —— 而它正是「五个人用
+    同一把尺子」的证据，错位等于没有证据。按列名而不是按位置对齐，是为了让重排
+    幂等：再跑一次不会二次搬运。
+    """
+    try:
+        lines = path.read_text(encoding="utf-8").splitlines()
+    except OSError:
+        return False
+    if not lines:
+        return False
+    old_header = lines[0].split("\t")
+    if tuple(old_header) == tuple(columns):
+        return False
+
+    rebuilt = ["\t".join(columns)]
+    for line in lines[1:]:
+        if not line.strip():
+            continue
+        cells = line.split("\t")
+        record = {
+            name: cells[index] for index, name in enumerate(old_header) if index < len(cells)
+        }
+        rebuilt.append("\t".join(record.get(name, "n/a") for name in columns))
+    path.write_text("\n".join(rebuilt) + "\n", encoding="utf-8", newline="\n")
+    return True
+
+
 def append_leaderboard(row: dict) -> None:
     LEADERBOARD.parent.mkdir(parents=True, exist_ok=True)
-    is_new = not LEADERBOARD.exists()
+    if LEADERBOARD.exists():
+        migrate_leaderboard_header(LEADERBOARD, LEADERBOARD_COLUMNS)
+    else:
+        LEADERBOARD.write_text(
+            "\t".join(LEADERBOARD_COLUMNS) + "\n", encoding="utf-8", newline="\n"
+        )
     with LEADERBOARD.open("a", encoding="utf-8", newline="\n") as handle:
-        if is_new:
-            handle.write("\t".join(LEADERBOARD_COLUMNS) + "\n")
         handle.write("\t".join(format_cell(row.get(column)) for column in LEADERBOARD_COLUMNS) + "\n")
 
 
@@ -219,7 +372,22 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--limit", type=int, default=None, help="只跑前 N 条（小样本冒烟用）")
     parser.add_argument("--offset", type=int, default=0, help="从第几条开始取")
     parser.add_argument("--backend", default="transformers", choices=("transformers", "openai_compatible"))
-    parser.add_argument("--model-path", default=None, help="transformers 后端的模型目录（相对路径以 GivenData/participant 为基准）")
+    parser.add_argument(
+        "--inference-script",
+        default="wired",
+        help="跑哪份推理脚本：wired（默认，deploy/participant/，带接线层）"
+        "| official（GivenData 官方原件，裸基线对照）| 其它路径（相对路径以仓库根为基准）",
+    )
+    parser.add_argument(
+        "--model-path",
+        default=None,
+        help=f"transformers 后端的模型目录（相对路径以仓库根为基准；默认 {DEFAULT_MODEL_PATH}）",
+    )
+    parser.add_argument(
+        "--prompt-dir",
+        default=str(DEFAULT_PROMPT_DIR),
+        help="队友提示词目录，作为 PARTICIPANT_PROMPT_DIR 传给推理脚本（默认仓库根 prompts/）",
+    )
     parser.add_argument("--base-url", default=None, help="openai_compatible 后端的服务地址，例如 http://127.0.0.1:8000/v1")
     parser.add_argument("--api-model", default=None, help="openai_compatible 后端请求里带的模型名")
     parser.add_argument("--api-key", default=None, help="openai_compatible 后端的密钥（没有就留空）")
@@ -235,10 +403,20 @@ def build_parser() -> argparse.ArgumentParser:
 def main(argv=None) -> int:
     args = build_parser().parse_args(argv)
 
+    script = resolve_inference_script(args.inference_script)
+    if not script.is_file():
+        raise SystemExit(
+            f"找不到推理脚本 {script}；--inference-script 可以给 wired / official / 一个路径"
+        )
+    participant_dir = script.parent
+    prompt_dir = resolve_repo_path(args.prompt_dir).resolve()
+    kind = script_kind(script)
+
     result_dir = RUNS / f"eval-{args.tag}"
     result_dir.mkdir(parents=True, exist_ok=True)
     submission = result_dir / "submission.jsonl"
     score_path = result_dir / "score.json"
+    prompts_cell = "(skip)"
 
     if args.skip_inference:
         if not args.predictions:
@@ -262,13 +440,43 @@ def main(argv=None) -> int:
             env["EVALUATION_API_MODEL"] = args.api_model
         if args.api_key is not None:
             env["EVALUATION_API_KEY"] = args.api_key
-        if args.model_path:
-            env["EVALUATION_MODEL_PATH"] = args.model_path
 
-        model_label = args.api_model or args.model_path or "(config 默认)"
-        print(f"[2/4] 跑推理: backend={args.backend} model={model_label}")
+        model_path = resolve_repo_path(args.model_path) if args.model_path else None
+        if model_path is None and args.backend == "transformers" and DEFAULT_MODEL_PATH.is_dir():
+            model_path = DEFAULT_MODEL_PATH
+        if model_path is not None:
+            env["EVALUATION_MODEL_PATH"] = str(model_path)
+        # 恒指回仓库根 prompts/：镜像里这一步由 deploy/build.sh 完成，本地不做就会
+        # 悄悄退化成官方提示词，量出来的数不对应我们要提交的那棵树。
+        env["PARTICIPANT_PROMPT_DIR"] = str(prompt_dir)
+
+        wiring_info: dict = {}
+        print(f"[2/4] 跑推理: backend={args.backend}")
+        print(f"      脚本       {script}  [{kind}]")
+        print(f"      模型       {model_path or '(由 inference_config.json 决定)'}")
+        print(f"      提示词目录 {prompt_dir}")
+        if kind == "wired":
+            wiring_info = probe_wiring(prompt_dir, participant_dir)
+            if wiring_info.get("available"):
+                prompts_cell = ",".join(wiring_info.get("prompt_blocks_present") or []) or "(none)"
+                print(
+                    "      接线层     提示词={} rag.retrieve={} rag.fusion={}".format(
+                        prompts_cell,
+                        wiring_info.get("rag_retrieve"),
+                        wiring_info.get("rag_fusion"),
+                    )
+                )
+                if prompts_cell == "(none)":
+                    print("      [注意] 一个提示词块都没加载 —— 这趟等于官方提示词基线。")
+            else:
+                prompts_cell = "?"
+                print(f"      [警告] 接线层探测失败：{wiring_info.get('reason')}")
+        else:
+            prompts_cell = "(官方内置)"
+            print("      接线层     无（官方原件；队友的提示词与 RAG 不会生效）")
+
         code = run_step(
-            [sys.executable, str(INFERENCE_SCRIPT), str(input_path), str(result_dir)],
+            [sys.executable, str(script), str(input_path), str(result_dir)],
             env=env,
             title="inference",
         )
@@ -312,12 +520,16 @@ def main(argv=None) -> int:
             "tag": args.tag,
             "backend": args.backend,
             "model": args.api_model or args.model_path or "config",
+            "script": "(skip)" if args.skip_inference else kind,
+            "prompts": prompts_cell,
             "n_samples": None if args.skip_inference else count,
         }
     )
     append_leaderboard(row)
 
     print("\n== 本次结果 ==")
+    print(f"  推理脚本          {row['script']}  ({script})")
+    print(f"  加载的提示词      {row['prompts']}")
     print(f"  可比对样本        {row['n_comparable']}")
     print(f"  情绪 Acc          {format_cell(row['emotion_acc'])}")
     print(f"  画像 Acc(三维均值) {format_cell(row['profile_acc'])}")
