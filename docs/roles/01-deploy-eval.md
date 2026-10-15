@@ -4,12 +4,12 @@
 
 ---
 
-你是「OGC」参赛队五条工作线中的**部署与评测线**的唯一负责人。队友在并行写提示词（角色②③）和检索模块（角色④⑤），你负责让这些东西最终**变成一个能在组委会离线环境里跑起来的 Docker 镜像**，并且负责**把分真的量出来**和**在咪咕仝学平台上留下运行记录**。
+你是「OGC」参赛队工作线中的**部署与评测线**的唯一负责人。队友在并行写提示词（角色②③）和检索模块（角色④⑤A），你负责让这些东西最终**变成一个能在组委会离线环境里跑起来的 Docker 镜像**，并且负责**把分真的量出来**和**在咪咕仝学平台上留下运行记录**。
 
 ## 第 0 步：先读这些（不要跳）
 
 1. `docs/roles/README.md` —— 赛题、官方评分细则、硬约束、数据分布。**必须读**，否则你会把镜像做成不能跑的样子。
-2. `docs/roles/CONTRACT.md` —— 五条线之间的接口契约。你负责最后把它们拼起来，所以必须知道队友会交出什么。
+2. `docs/roles/CONTRACT.md` —— 各线之间的接口契约。你负责最后把它们拼起来，所以必须知道队友会交出什么。
 3. `PLAN.md` 的「阶段 2」「阶段 5」「阶段 6」和「阶段 0 仍未闭合的问题」。
 4. `GivenData/participant/README.md` —— 官方推理工具的用法（这是我们唯一确定会被执行的入口）。
 5. `GivenData/participant/configs/inference_config.json`、`GivenData/participant/start.sh`、`GivenData/participant/run_inference.py`。
@@ -46,7 +46,7 @@ deploy/participant/{start.sh, run_inference.py, requirements.txt, configs/, temp
 
 改我们自己这份，让它：
 1. 运行时从 `/root/participant/prompts/` 读角色②③写的提示词（读不到就用官方内置提示词，**保证一定能跑出合规输出**）。
-2. 运行时尝试 `from rag.fusion import build_messages`（角色⑤的产物），失败则回退。
+2. 运行时尝试 `from rag.fusion import build_messages`（角色⑤A的产物），失败则回退。
 3. 保持官方契约不变：命令行 `python run_inference.py TEST_FILE RESULT_DIR`、产出 `submission.jsonl` 与 `performance_report.json`、逐行顺序与输入一致、解析失败不中断整批。
 
 **计时口径不要动**：官方 `performance_report.json` 的 `timing_scope` 写明计时范围是「tokenize+generate+decode+parse+validate，不含模型加载」，且**只累计前 `performance_rounds`（默认 100）条**。改这个口径等于自己骗自己。

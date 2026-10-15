@@ -1,6 +1,6 @@
 # 技术方案：数字人综合情感陪伴对话模型
 
-> 作者：角色⑤（RAG·融合与文档）。对应官方评分项「专家评审 — 方案完整性（10 分）」。
+> 作者：角色⑤B（专家评审文档）。对应官方评分项「专家评审 — 方案完整性（10 分）」。
 > 写作纪律：本文每一个数字都必须能指回仓库里的具体产物文件；没有实测的地方写「未执行」并说明原因，不编造。
 
 ## 一、赛题理解
@@ -87,7 +87,7 @@ start.sh  ──►  run_inference.py  ──►  wiring.py  ──►  rag/fusi
 - **`deploy/participant/wiring.py`（角色①）**：接线层。唯一职责是把「官方脚本」与
   「队友的融合层」缝在一起，**永不抛异常**——任何一步失败都退回官方提示词与官方组包，
   保证镜像在任何情况下都能跑出合规输出。这是「5 次机会 + 10 卡时」下的必要设计。
-- **`rag/fusion.py`（角色⑤）**：装配 `messages`。负责提示词拼接、检索结果过滤、
+- **`rag/fusion.py`（角色⑤A）**：装配 `messages`。负责提示词拼接、检索结果过滤、
   上下文预算与截断、防泄漏断言、可关闭开关。
 - **`prompts/*.md`（角色②③）**：纯文本提示词块，不许在融合层里重写。
 - **`rag/`（角色④）**：纯标准库检索 + 记忆抽取。语料只取训练集。
@@ -101,7 +101,7 @@ start.sh  ──►  run_inference.py  ──►  wiring.py  ──►  rag/fusi
 def retrieve(sample: dict, k: int = 3) -> list[dict]:
     """返回 [{"text": str, "score": float, "source_id": str}]，无结果返回 []。"""
 
-# rag/fusion.py（角色⑤）
+# rag/fusion.py（角色⑤A）
 def build_messages(sample: dict, retrieved: list[dict] | None = None,
                    system_prompt: str | None = None) -> list[dict]:
     """给不得时抛 FusionUnavailable，由接线层回退官方组包。"""
@@ -136,8 +136,8 @@ def extract_memories(history: list[dict]) -> list[dict]: ...
 | 回应质量（BLEU-4 / ROUGE-L / BERTScore） | 20 | 角色③ | 控制回复长度贴近训练集分布（中位 129 字）；只学检索到的语气、不抄内容 |
 | 用户画像推断 | 15 | 角色② | 三维**集合精确匹配**，多写错标签会让整维归零 → 策略是「有强证据才写」 |
 | 推理性能 | 10 | 角色① | 3B 级模型 + 明确计时口径；权重打进镜像避免加载抖动 |
-| 方案完整性 | 10 | 角色⑤ | 本文件 + `experiments.md` |
-| 代码规范性 | 10 | 角色⑤（守门） | 统一 docstring/类型标注规范，`reproduce.md` 附全量检查命令 |
+| 方案完整性 | 10 | 角色⑤B | 本文件 + `experiments.md` |
+| 代码规范性 | 10 | 角色⑤B（守门） | 统一 docstring/类型标注规范，`reproduce.md` 附全量检查命令 |
 | 平台运行记录 | 10 | 角色① | `docs/platform-log/YYYY-MM-DD-<事由>.md` + 截图，**从第一天开始记**，事后补不出来 |
 
 ## 六、已知限制与风险

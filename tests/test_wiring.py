@@ -53,7 +53,7 @@ class FallbackTests(unittest.TestCase):
         self.assertEqual(messages[1]["content"], "对话历史占位")
 
     def test_rag_missing_falls_back(self) -> None:
-        # 角色⑤交付 rag/fusion.py 之后，这个文件在仓库里真实存在，所以必须**显式**
+        # 角色⑤A交付 rag/fusion.py 之后，这个文件在仓库里真实存在，所以必须**显式**
         # 模拟「rag 包不可导入」（sys.modules 里塞 None 会让 importlib 抛 ImportError）。
         with mock.patch.dict(sys.modules, {"rag": None, "rag.fusion": None}):
             self.assert_official(wiring.build_messages(SAMPLE, OFFICIAL, conversation_text))

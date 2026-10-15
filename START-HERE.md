@@ -16,13 +16,16 @@
 
 ## 1. 你是哪条线
 
+> 原「⑤ RAG·融合与文档」已拆成 **⑤A 融合代码**与 **⑤B 专家评审文档**（2026-10-16）。队长 = ① + ⑤B。
+
 | 线 | 提示词文件 | 主责 | 你能动的目录 |
 |---|---|---|---|
 | ① 部署与评测 | [`docs/roles/01-deploy-eval.md`](docs/roles/01-deploy-eval.md) | 推理性能 10 分 + 平台运行记录 10 分 | `deploy/`、`docs/platform-log/` |
 | ② 提示词·情绪与画像 | [`docs/roles/02-prompt-emotion-profile.md`](docs/roles/02-prompt-emotion-profile.md) | 情感识别 25 分 + 用户画像 15 分 | `prompts/emotion_profile.md`、`tools/emotion_profile/` |
 | ③ 提示词·共情回复 | [`docs/roles/03-prompt-response.md`](docs/roles/03-prompt-response.md) | 回应质量 20 分 | `prompts/response.md`、`tools/response/` |
 | ④ RAG·语料与检索 | [`docs/roles/04-rag-corpus.md`](docs/roles/04-rag-corpus.md) | 记忆融合 | `rag/corpus/`、`rag/index/`、`rag/retrieve.py`、`rag/memory.py` |
-| ⑤ RAG·融合与文档 | [`docs/roles/05-rag-fusion-docs.md`](docs/roles/05-rag-fusion-docs.md) | 方案完整性 10 分 + 代码规范性 10 分 | `rag/fusion.py`、`docs/reports/` |
+| ⑤A RAG·融合 | [`docs/roles/05a-rag-fusion.md`](docs/roles/05a-rag-fusion.md) | 融合层 | `rag/fusion.py` |
+| ⑤B 专家评审文档 | [`docs/roles/05b-reports.md`](docs/roles/05b-reports.md) | 方案完整性 10 分 + 代码规范性 10 分 | `docs/reports/` |
 
 **接口怎么拼**在 [`docs/roles/CONTRACT.md`](docs/roles/CONTRACT.md) 里冻结了，动之前先读。
 **别人的目录只读**，要改先在 issue 里说一声。

@@ -1,4 +1,4 @@
-# 接口契约（五条线之间的接缝，改之前必须先在全队说）
+# 接口契约（各线之间的接缝，改之前必须先在全队说）
 
 路线已定：**提示词 + RAG + 离线小模型**。为了让五个人能并行开发、最后由角色①的 Dockerfile 拼起来，下面这些路径与函数签名**冻结**。谁要改，先在群里说，改完全队同步。
 
@@ -10,16 +10,18 @@ prompts/response.md            角色③ 写    回复生成的写作规则（�
 rag/corpus/                    角色④ 写    语料构建脚本与语料产物
 rag/index/                     角色④ 写    检索索引（构建产物，可重建）
 rag/retrieve.py                角色④ 写    检索接口
-rag/fusion.py                  角色⑤ 写    把「画像 + 检索结果 + 对话」拼成最终 messages
+rag/fusion.py                  角色⑤A 写   把「画像 + 检索结果 + 对话」拼成最终 messages
 deploy/                        角色① 写    Dockerfile、participant 工具副本、离线打包脚本
 deploy/participant/            角色① 写    /root/participant 的内容（官方工具的我们自己的副本）
 docs/platform-log/             角色① 写    平台运行留档
-docs/reports/                  角色⑤ 写    技术方案 / 实验报告 / 专家评审材料
+docs/reports/                  角色⑤B 写   技术方案 / 实验报告 / 专家评审材料
 ```
+
+> **2026-10-16**：原「⑤ RAG·融合与文档」拆成 **⑤A（融合代码，只写 `rag/fusion.py`）** 与 **⑤B（专家评审文档，只写 `docs/reports/`）**。两条线不再由同一人承担，其余归属不变。
 
 **`GivenData/` 永远只读。** 我们要改官方推理脚本时，改的是 `deploy/participant/` 里的**副本**，不是 `GivenData/participant/` 原件。
 
-## 二、检索接口（角色④ → 角色⑤）
+## 二、检索接口（角色④ → 角色⑤A）
 
 `rag/retrieve.py` 必须导出：
 
@@ -30,7 +32,7 @@ def retrieve(sample: dict, k: int = 3) -> list[dict]:
     无结果返回 []。不允许联网、不允许引入第三方依赖。"""
 ```
 
-## 三、组包接口（角色⑤ → 角色①）
+## 三、组包接口（角色⑤A → 角色①）
 
 `rag/fusion.py` 必须导出：
 
@@ -58,7 +60,7 @@ except Exception: messages = <官方 SYSTEM_PROMPT 版>
 - 必须包含输出字段的取值约束（16 类情绪、三维画像的 ASCII 词表）。
 - 其中**画像与情绪词表不要手抄**：用 `python tools/gen_label_block.py`（读 `configs/label_space.json`，也就是 `src/label_space.py` 导出的唯一真相）生成纯文本块后贴进提示词。手抄出错是静默的——词表外的取值会被 `normalize_*` 丢掉，只表现为「那一维全空」。
 
-## 五、评测口径（五条线共用同一把尺子）
+## 五、评测口径（各线共用同一把尺子）
 
 ```bash
 python src/cli.py eval --predictions runs/<你的产物>.jsonl

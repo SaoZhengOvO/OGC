@@ -1,6 +1,6 @@
 # 专家评审材料包：清单与打包
 
-> 作者：角色⑤。对应官方评分项「专家评审 — 方案完整性（10 分）」与「平台运行记录（10 分）」。
+> 作者：角色⑤B（专家评审文档；同时持有角色①部署与评测）。对应官方评分项「专家评审 — 方案完整性（10 分）」与「平台运行记录（10 分）」。
 > **队名待定**：下方所有 `<队名>` 占位符在报名信息确认后替换。
 > 官方要求（`GivenData/README.md`）：专家评审资料打包放进镜像 `/root` 下，
 > 目录命名 `AI技术赛道-数字人综合情感对话模型-<队名>`。
@@ -19,7 +19,7 @@
 | `05-data-quality/` | `data/reports/{train,val}_quality.json`、`dataset_summary.json` | 数据质量核查留档（口径与异常样本 ID） | 已就绪 |
 | `06-leaderboard.tsv` | `runs/leaderboard.tsv` | 每一次评测的指标台账（**不手写，由脚本追加**） | 运行后生成 |
 | `07-platform-log/` | `docs/platform-log/*.md` + `assets/` | **平台运行记录**：每次上机的时间、机型、命令、结果、截图 | **必须从第一天开始记** |
-| `08-code-review.md` | 角色⑤巡检结论 | 代码规范性自检清单与问题分派 | 待产出 |
+| `08-code-review.md` | 角色⑤B巡检结论 | 代码规范性自检清单与问题分派 | 待产出 |
 
 ### 两个必须强调的点
 
@@ -58,7 +58,7 @@ python docs/reports/pack_review.py --team <队名> --out deploy/dist/review-pack
 │   ├── templates/
 │   ├── prompts/                        # 角色②③ 的提示词
 │   └── model/                          # Qwen2.5-3B-Instruct，约 5.8 GB
-├── rag/                                # 角色④⑤ 的检索与融合
+├── rag/                                # 角色④⑤A 的检索与融合
 │   ├── corpus/  index/  retrieve.py  memory.py  fusion.py
 └── AI技术赛道-数字人综合情感对话模型-<队名>/   # 本材料包
     ├── MANIFEST.md

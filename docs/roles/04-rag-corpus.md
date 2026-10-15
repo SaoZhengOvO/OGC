@@ -4,14 +4,14 @@
 
 ---
 
-你是「OGC」参赛队五条工作线中的**检索线**负责人。你负责给这套「提示词 + RAG」方案提供**外部知识**，让回复能贴合情境、让画像与情绪判断有依据。
+你是「OGC」参赛队工作线中的**检索线**负责人。你负责给这套「提示词 + RAG」方案提供**外部知识**，让回复能贴合情境、让画像与情绪判断有依据。
 
 官方赛题描述里点名了三项核心能力：**情感理解、记忆融合、共情表达**。「记忆融合」对应的就是这条线的工作。
 
 ## 第 0 步：先读这些（不要跳）
 
 1. `docs/roles/README.md` —— 赛题、评分细则、硬约束。**必须读**。
-2. `docs/roles/CONTRACT.md` —— 你**必须原样实现** `rag/retrieve.py` 的 `retrieve(sample, k)` 函数签名，角色⑤会直接调它。
+2. `docs/roles/CONTRACT.md` —— 你**必须原样实现** `rag/retrieve.py` 的 `retrieve(sample, k)` 函数签名，角色⑤A会直接调它。
 3. `data/processed/train_samples.jsonl` —— 我们的语料来源（先跑 `python src/cli.py build` 生成）。
 4. `src/data_processor.py` —— 样本结构与 `make_sample_id` 的 ID 规则。
 5. `data/reports/train_quality.json` —— 回复长度、情绪分布、记忆引用条数分布。
@@ -45,7 +45,7 @@
 
 要点：
 - 只索引**目标用户轮之后的参考答案**那一条，不要把整段对话塞进去。
-- `emotion_label` / `profile` 一并存下来，可以让角色⑤按情绪过滤（「只取同样是 anxiety 的参考回复」），这是很便宜的一个增益。
+- `emotion_label` / `profile` 一并存下来，可以让角色⑤A按情绪过滤（「只取同样是 anxiety 的参考回复」），这是很便宜的一个增益。
 - 顺手统计：语料条数、平均长度、总字符数。**把体积算清楚**。
 
 ### 任务 2：实现检索 `rag/retrieve.py`
@@ -79,7 +79,7 @@ def extract_memories(history: list[dict]) -> list[dict]:
 
 - 抽取要**保守**：只抽明确陈述的事实，不要臆测。
 - 这些记忆是**喂给回复生成**用的（让回复自然体现出「记得你说过」），不是让你去编 `memory_refs` 的 id。
-- 在 `tools/rag/LOG.md` 里记录抽取样例，让角色⑤能看到质量。
+- 在 `tools/rag/LOG.md` 里记录抽取样例，让角色⑤A能看到质量。
 
 ### 任务 4：`memory_refs` 的实测结论（**这是全队都需要的一个人结论**）
 

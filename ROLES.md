@@ -5,17 +5,21 @@
 
 本仓库是「2026 动感地带 AI+ 高校创智计划」AI 技术赛道赛题二**数字人综合情感陪伴对话模型**的参赛工程。
 
-我们五个人各自认领一条线，**每条线配一份提示词**。用法：把自己那台机器上的编码 AI（Claude Code / Cursor / DeepSeek Harness / 本地部署的任意 agent）的工作目录设为本仓库根目录，把对应提示词**整段贴进去**，它就知道该干什么、该动哪些文件、怎么自测。
+**五个人，六条线**（有人兼两条），**每条线配一份提示词**。用法：把自己那台机器上的编码 AI（Claude Code / Cursor / DeepSeek Harness / 本地部署的任意 agent）的工作目录设为本仓库根目录，把对应提示词**整段贴进去**，它就知道该干什么、该动哪些文件、怎么自测。
 
-## 五条线
+## 六条线
 
-| 线 | 提示词 | 主责评分项 | 独占写文件范围 |
-|---|---|---|---|
-| ① 部署与评测 | [`docs/roles/01-deploy-eval.md`](docs/roles/01-deploy-eval.md) | 推理性能 10 分 + 平台运行记录 10 分 | `deploy/`、`docs/platform-log/` |
-| ② 提示词·情绪与画像 | [`docs/roles/02-prompt-emotion-profile.md`](docs/roles/02-prompt-emotion-profile.md) | 情感识别 25 分 + 用户画像 15 分 | `prompts/emotion_profile.md`、`tools/emotion_profile/` |
-| ③ 提示词·共情回复 | [`docs/roles/03-prompt-response.md`](docs/roles/03-prompt-response.md) | 回应质量 20 分 | `prompts/response.md`、`tools/response/` |
-| ④ RAG·语料与检索 | [`docs/roles/04-rag-corpus.md`](docs/roles/04-rag-corpus.md) | 记忆融合（赛题核心能力） | `rag/corpus/`、`rag/index/`、`rag/retrieve.py`、`rag/memory.py`、`tools/rag/` |
-| ⑤ RAG·融合与文档 | [`docs/roles/05-rag-fusion-docs.md`](docs/roles/05-rag-fusion-docs.md) | 方案完整性 10 分 + 代码规范性 10 分 | `rag/fusion.py`、`docs/reports/` |
+> **2026-10-16 分工变更**：原「⑤ RAG·融合与文档」**拆成两条独立线**——⑤A 融合代码、⑤B 专家评审文档。
+> 队长现在持有 **① 部署与评测 ＋ ⑤B 专家评审文档**。「当前负责人」列为空 = 还没人认领，谁认领谁自己填。
+
+| 线 | 提示词 | 主责评分项 | 独占写文件范围 | 当前负责人 |
+|---|---|---|---|---|
+| ① 部署与评测 | [`docs/roles/01-deploy-eval.md`](docs/roles/01-deploy-eval.md) | 推理性能 10 分 + 平台运行记录 10 分 | `deploy/`、`docs/platform-log/` | **队长** |
+| ② 提示词·情绪与画像 | [`docs/roles/02-prompt-emotion-profile.md`](docs/roles/02-prompt-emotion-profile.md) | 情感识别 25 分 + 用户画像 15 分 | `prompts/emotion_profile.md`、`tools/emotion_profile/` | 待认领 |
+| ③ 提示词·共情回复 | [`docs/roles/03-prompt-response.md`](docs/roles/03-prompt-response.md) | 回应质量 20 分 | `prompts/response.md`、`tools/response/` | 待认领 |
+| ④ RAG·语料与检索 | [`docs/roles/04-rag-corpus.md`](docs/roles/04-rag-corpus.md) | 记忆融合（赛题核心能力） | `rag/corpus/`、`rag/index/`、`rag/retrieve.py`、`rag/memory.py`、`tools/rag/` | 待认领 |
+| ⑤A RAG·融合 | [`docs/roles/05a-rag-fusion.md`](docs/roles/05a-rag-fusion.md) | 融合层（②③ 的分数要经它才落到模型上） | `rag/fusion.py` | 待认领 |
+| ⑤B 专家评审文档 | [`docs/roles/05b-reports.md`](docs/roles/05b-reports.md) | 方案完整性 10 分 + 代码规范性 10 分 | `docs/reports/` | **队长** |
 
 **接口契约见 [`docs/roles/CONTRACT.md`](docs/roles/CONTRACT.md)** —— 五个人的产出的拼接方式（`rag/retrieve.py`、`rag/fusion.py` 的函数签名、提示词文件格式、评测口径）都在那里冻结了。
 
