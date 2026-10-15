@@ -66,6 +66,11 @@ def human(size: float) -> str:
     return f"{size:.1f}GB"
 
 
+# 在后台任务 / 管道里运行时 stdout 不是终端。此时**不要**输出每秒刷新的进度条：
+# 管子写满 4KB 后进程会卡死在 write() 上，看起来像"下载卡住"，其实是自己被自己的日志堵住了。
+SHOW_PROGRESS = sys.stdout.isatty()
+
+
 def request(url: str, *, headers: dict | None = None, timeout: int = 30):
     merged = {"User-Agent": "curl/8.0"}
     if headers:
@@ -156,7 +161,7 @@ def download_one(repo: str, name: str, dest: Path, endpoint: str, *, retries: in
                         handle.write(chunk)
                         written += len(chunk)
                         elapsed = time.time() - start
-                        if elapsed > 1.5:
+                        if SHOW_PROGRESS and elapsed > 1.5:
                             speed = (written - base) / elapsed
                             if total:
                                 pct = 100 * written / total
@@ -168,7 +173,8 @@ def download_one(repo: str, name: str, dest: Path, endpoint: str, *, retries: in
                             sys.stdout.flush()
                             start = time.time()
                             base = written
-            sys.stdout.write("\n")
+            if SHOW_PROGRESS:
+                sys.stdout.write("\n")
 
             # 关键：流断了不一定抛异常，urllib 的 read(n) 只是返回 b''。
             # 所以必须自己核对字节数，否则会把半截文件当成功。

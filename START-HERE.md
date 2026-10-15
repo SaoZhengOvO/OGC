@@ -158,6 +158,8 @@ python -m unittest discover -s tests
 |---|---|
 | `FileNotFoundError: 本地模型目录不存在` | 模型还没下。跑第 3 步。 |
 | `no kernel image is available` | torch 的 CUDA 版本太旧。重装 `cu130`。 |
+| 权重像是下完了，其实只有一半 | 用 `python tools/fetch_model.py --check` 核对——它会连远端比大小，不完整会退出码 1。这个静默截断的坑已经修掉，但旧版本下过的目录要重新 `--check` 一次。 |
+| 下载看着"卡住"不动了 | Windows 对**正在写入**的文件只报目录项里的旧大小。别信 `Get-ChildItem`；用 `[System.IO.File]::Open($p,'Open','Read','ReadWrite')` 读 `$fs.Length` 才是真进度。 |
 | `CUDA out of memory` | 8 GB 卡跑不动 3B。换 1.5B，或加 `--limit` 先跑小样本。 |
 | `找不到 data/processed/...` | 没跑第 4 步 `python src/cli.py build`。 |
 | 下载龟速 | 加 `--mirror https://hf-mirror.com`。 |
