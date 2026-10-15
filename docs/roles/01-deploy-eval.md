@@ -20,7 +20,7 @@
 
 约束：
 - 本机显存：你自己那台是 **8 GB（RTX 5060 Laptop）或 12 GB（RTX 5070 Laptop）**，架构是 Blackwell（sm_120）→ PyTorch 必须 **cu128 及以上**，否则报 `no kernel image is available`。
-- 本机系统 Python 是 3.14，**PyTorch 没有对应轮子**，需要另建 Python 3.11/3.12 的虚拟环境。
+- 本机系统 Python 是 3.14，**这一条已经验证过，直接用就行**：`pip install torch --index-url https://download.pytorch.org/whl/cu130` 会装到 `torch 2.14.1+cu130`，`torch.cuda.is_available()` 为 True、capability `(12, 0)`（就是 sm_120）。**不要另建 Python 3.11/3.12 环境**，仓库统一用 `.venv`。cu130 是唯一同时满足「cp314 有轮子」和「sm_120 能跑」的索引。
 - 模型最终要**完整打进镜像离线加载**（不能运行时下载），所以权重体积、许可、是否支持 `local_files_only` 都要确认。
 
 候选（按推荐顺序，逐个下载实测，不要只看参数表）：

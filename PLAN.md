@@ -14,7 +14,8 @@
 | 其余四人 | RTX 5060 Laptop ×4 | 8 GB |
 
 - 全部是 Blackwell 架构（sm_120），PyTorch 需要 cu128 及以上构建，否则会出现 `no kernel image is available`。
-- 本机系统 Python 为 3.14，PyTorch 无对应官方轮子，需另建 Python 3.11/3.12 环境。
+- ~~本机系统 Python 为 3.14，PyTorch 无对应官方轮子，需另建 Python 3.11/3.12 环境。~~ **该判断已作废**（2026-10-15 实测）：系统 Python 3.14.7 上 `pip install torch --index-url https://download.pytorch.org/whl/cu130` 直接装到 `torch 2.14.1+cu130`，`torch.cuda.is_available()` 为 True、`get_device_capability()` 返回 `(12, 0)`（正是 sm_120），`transformers 5.19.0` / `accelerate 1.15.0` 同样有 cp314 轮子。**不需要另建 Python 3.11/3.12 环境**，仓库统一用 `.venv` + cu130。
+  - 索引实测：`cu126`→2.14.1+cu126、`cu128`→2.11.0+cu128、`cu129`→2.9.0+cu129、`cu130`→2.14.1+cu130、`cu131`→无。**cu130 是唯一同时满足「cp314 有轮子」和「sm_120 能跑」的索引**，别换别的。
 - 8 GB 显存是**推理**约束而非训练约束：3B 级模型 fp16 约 6 GB 可以跑，4bit 量化约 2 GB；7B 的 4bit 量化版（约 4.5 GB）也塞得下，但出字速度慢、端到端延迟吃亏。
 - 五台机器均为消费级笔记本，无高速互联，**跨机分布式训练（DDP/NCCL）不现实**。
 - 平台侧（咪咕仝学）实测**只有 RTX 4090 一种卡**：1 卡 = 250 AIQ/小时、16 核 64 GB、系统盘 50 GB；账户余额 0 AIQ、**卡时券余额 10 卡时**，平台上机必须省着用（见「官方细则已确认」一节的平台实测记录）。
