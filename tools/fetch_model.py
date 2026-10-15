@@ -88,33 +88,65 @@ def list_files(repo: str, endpoint: str) -> list[dict]:
     return files
 
 
+def resolve_url(repo: str, name: str, endpoint: str) -> str:
+    return f"{endpoint.rstrip('/')}/{repo}/resolve/main/{name}"
+
+
+def remote_size(url: str) -> int | None:
+    """HEAD 取文件的权威大小。
+
+    HF 的权重走 LFS：302 到 CDN，`X-Linked-Size` 才是真大小，而 302 自身的
+    `Content-Length` 只有一千多字节。urllib 会自动跟到最后一跳，所以这里拿到的
+    一定是最终 200 的 `Content-Length`。拿不到就返回 None（调用方降级处理）。
+    """
+    try:
+        with urllib.request.urlopen(request(url, timeout=30), timeout=30) as resp:
+            for key in ("Content-Length", "X-Linked-Size"):
+                value = resp.headers.get(key)
+                if value and str(value).strip().isdigit() and int(value) > 0:
+                    return int(value)
+    except Exception:  # noqa: BLE001
+        return None
+    return None
+
+
 def wanted(name: str) -> bool:
     if name.startswith(OPTIONAL_PREFIXES):
         return False
     return any(name.endswith(pattern) or name == pattern for pattern in KEEP_PATTERNS)
 
 
-def download_one(repo: str, name: str, dest: Path, endpoint: str, *, retries: int = 4) -> Path:
-    url = f"{endpoint.rstrip('/')}/{repo}/resolve/main/{name}"
+def download_one(repo: str, name: str, dest: Path, endpoint: str, *, retries: int = 6) -> Path:
+    url = resolve_url(repo, name, endpoint)
     target = dest / name
     target.parent.mkdir(parents=True, exist_ok=True)
     part = target.with_name(target.name + ".part")
 
-    already = part.stat().st_size if part.exists() else 0
+    expected = remote_size(url)
+    if expected and part.exists() and part.stat().st_size > expected:
+        part.unlink()  # 比目标还大 = 之前续传写脏了，只能重来
+
     last_error: Exception | None = None
 
     for attempt in range(1, retries + 1):
+        already = part.stat().st_size if part.exists() else 0
         headers = {}
         mode = "wb"
-        if already:
+        if already and (not expected or already < expected):
             headers["Range"] = f"bytes={already}-"
             mode = "ab"
         try:
             with urllib.request.urlopen(request(url, headers=headers, timeout=60), timeout=60) as resp:
-                total = None
-                if resp.headers.get("Content-Length"):
+                status = getattr(resp, "status", 200)
+                if mode == "ab" and status != 206:
+                    # 服务器不认 Range，返回的是完整文件：必须从头写，否则会拼出脏文件
+                    sys.stdout.write(f"\n    {name}: 服务器不支持断点续传，从头开始\n")
+                    mode, already = "wb", 0
+                total = expected
+                if not total and resp.headers.get("Content-Length"):
                     total = int(resp.headers["Content-Length"]) + (already if mode == "ab" else 0)
                 start = time.time()
+                base = already
                 written = already
                 with open(part, mode) as handle:
                     while True:
@@ -125,7 +157,7 @@ def download_one(repo: str, name: str, dest: Path, endpoint: str, *, retries: in
                         written += len(chunk)
                         elapsed = time.time() - start
                         if elapsed > 1.5:
-                            speed = (written - already) / elapsed
+                            speed = (written - base) / elapsed
                             if total:
                                 pct = 100 * written / total
                                 sys.stdout.write(
@@ -135,18 +167,25 @@ def download_one(repo: str, name: str, dest: Path, endpoint: str, *, retries: in
                                 sys.stdout.write(f"\r    {name}: {human(written)}  {human(speed)}/s   ")
                             sys.stdout.flush()
                             start = time.time()
-                            already = written
+                            base = written
             sys.stdout.write("\n")
+
+            # 关键：流断了不一定抛异常，urllib 的 read(n) 只是返回 b''。
+            # 所以必须自己核对字节数，否则会把半截文件当成功。
+            final = part.stat().st_size if part.exists() else 0
+            if expected and final != expected:
+                raise OSError(f"只下到 {human(final)}，应为 {human(expected)}（连接被提前掐断）")
+            if not expected and written == 0:
+                raise OSError("一个字节都没读到")
+
             part.replace(target)
             return target
         except Exception as exc:  # noqa: BLE001
             last_error = exc
             sys.stdout.write(f"\n    第 {attempt} 次尝试失败: {type(exc).__name__}: {str(exc)[:120]}\n")
-            if part.exists():
-                already = part.stat().st_size
             time.sleep(2 * attempt)
 
-    raise SystemExit(f"下载 {name} 失败：{last_error}")
+    raise SystemExit(f"下载 {name} 失败（{retries} 次都没下完）：{last_error}")
 
 
 def main(argv=None) -> int:
@@ -155,6 +194,7 @@ def main(argv=None) -> int:
     parser.add_argument("--dest", default=str(DEFAULT_DEST), help="模型落盘目录")
     parser.add_argument("--mirror", default=None, help="下载源，例如 https://hf-mirror.com（慢或连不上时用）")
     parser.add_argument("--check", action="store_true", help="只列出目录里已有什么，不下载")
+    parser.add_argument("--no-verify", action="store_true", help="配合 --check：跳过与远端大小的核对（离线时用）")
     parser.add_argument("--all", action="store_true", help="连 README/LICENSE 一起下，不留任何文件")
     args = parser.parse_args(argv)
 
@@ -169,20 +209,35 @@ def main(argv=None) -> int:
         if not dest.exists():
             print("\n目录不存在——模型还没下过。")
             return 1
-        names = sorted(p for p in dest.iterdir() if p.is_file())
+        names = sorted(p for p in dest.iterdir() if p.is_file() and not p.name.endswith(".part"))
         if not names:
             print("\n目录是空的——模型还没下过。")
             return 1
-        total = 0
         print("\n已有文件:")
+        total = 0
+        bad: list[str] = []
         for path in names:
             size = path.stat().st_size
             total += size
-            print(f"  {path.name:<28} {human(size)}")
+            note = ""
+            if not args.no_verify:
+                want = remote_size(resolve_url(args.repo, path.name, endpoint))
+                if want is None:
+                    note = "  ← 拿不到远端大小，没核对"
+                elif want != size:
+                    note = f"  ← 不完整！应为 {human(want)}"
+                    bad.append(path.name)
+            print(f"  {path.name:<34} {human(size)}{note}")
         print(f"  合计 {human(total)}")
+        left = sorted(p.name for p in dest.iterdir() if p.name.endswith(".part"))
+        if left:
+            print(f"  没下完的分片: {', '.join(left)}")
         has_config = (dest / "config.json").exists()
         has_weights = any(p.suffix == ".safetensors" for p in names)
         print(f"\n可用性: config.json={'有' if has_config else '缺'} 权重={'有' if has_weights else '缺'}")
+        if bad:
+            print(f"\n以下文件不完整，重跑本命令会接着下: {', '.join(bad)}")
+            return 1
         return 0 if (has_config and has_weights) else 1
 
     print("正在取文件清单…")
@@ -202,9 +257,22 @@ def main(argv=None) -> int:
     for item in selected:
         name = item["name"]
         target = dest / name
-        if target.exists() and (not item.get("size") or target.stat().st_size == item["size"]):
-            print(f"  跳过（已完整）: {name}")
-            continue
+        want = remote_size(resolve_url(args.repo, name, endpoint))
+        if target.exists():
+            got = target.stat().st_size
+            if want is None:
+                print(f"  跳过（已存在，远端大小没拿到，没核对）: {name}")
+                continue
+            if got == want:
+                print(f"  跳过（已完整）: {name}")
+                continue
+            # 之前下了一半就当成功的那种文件：改名成 .part，让下面的续传接着下
+            print(f"  {name} 不完整（{human(got)}/{human(want)}），接着下")
+            part = target.with_name(target.name + ".part")
+            if not part.exists() or part.stat().st_size < got:
+                if part.exists():
+                    part.unlink()
+                target.replace(part)
         print(f"  下载: {name}")
         download_one(args.repo, name, dest, endpoint)
 
