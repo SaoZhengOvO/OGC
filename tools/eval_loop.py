@@ -115,6 +115,35 @@ def build_val_input(source: Path, out_path: Path, limit: int | None, offset: int
     return write_jsonl(out_path, rows)
 
 
+def write_reference_subset(references: Path, scope_file: Path, out_path: Path) -> int:
+    """把真值裁剪成和输入完全相同的 id 集合，返回保留条数。
+
+    只在 ``--limit`` / ``--offset`` 跑部分样本时用。`src/evaluate.py` 的分母刻意取
+    **完整验证集**（少交很多条不该反而分高），所以 20 条冒烟样本除以 2354 之后
+    分数永远接近 0，看不出任何改进。部分样本跑分时把真值一起收窄，数才有意义。
+    """
+    wanted = {row.get("id") for row in read_jsonl(scope_file)}
+    wanted.discard(None)
+    if not wanted:
+        raise SystemExit(f"{scope_file} 里没读到可用的 id")
+
+    kept = 0
+    out_path.parent.mkdir(parents=True, exist_ok=True)
+    with references.open(encoding="utf-8") as src, out_path.open("w", encoding="utf-8", newline="\n") as dst:
+        for line in src:
+            stripped = line.strip()
+            if not stripped:
+                continue
+            record = json.loads(stripped)
+            if record.get("id") in wanted:
+                dst.write(stripped + "\n")
+                kept += 1
+
+    if not kept:
+        raise SystemExit(f"{references} 里没有一条能对上 {scope_file} 的 id，确认两边是不是同一份数据")
+    return kept
+
+
 def run_step(cmd, *, env=None, title: str) -> int:
     print(f"\n$ {' '.join(str(part) for part in cmd)}")
     completed = subprocess.run(cmd, cwd=str(REPO_ROOT), env=env)
@@ -260,9 +289,18 @@ def main(argv=None) -> int:
         run_step(cmd, title="validate")
 
     print("[4/4] 本地打分")
+    references_path = Path(args.references).resolve()
+    if args.limit is not None or args.offset:
+        # 部分样本跑分：真值跟着收窄，否则分母永远是完整的 2354 条。
+        scope_file = input_path if input_path is not None else submission
+        subset_path = result_dir / "val_references_subset.jsonl"
+        kept = write_reference_subset(references_path, scope_file, subset_path)
+        print(f"      部分样本跑分，真值同步收窄到 {kept} 条；全量跑才是官方口径。")
+        references_path = subset_path
+
     metrics = score(
         submission,
-        Path(args.references).resolve(),
+        references_path,
         score_path,
         tokenizer=args.tokenizer,
         include_memory_refs=args.include_memory_refs,
