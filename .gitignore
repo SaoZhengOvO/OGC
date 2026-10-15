@@ -33,3 +33,10 @@ GivenData/participant/model/
 GivenData/participant/model-*/
 *.safetensors
 *.safetensors.part
+
+# pip 有时会把解包临时目录建在当前工作目录（而不是系统 TEMP）。
+# 2026-10-15 踩过一次：`git add -A` 把 1.9 GB 的 torch wheel 扫进了提交。
+# 双保险：这里挡住，同时 tools/bootstrap.py 会把 TEMP/TMPDIR 指到系统临时目录。
+pip-metadata-*/
+pip-unpack-*/
+/tmp*
