@@ -46,6 +46,7 @@ DEFAULT_ENDPOINT = "https://huggingface.co"
 KEEP_PATTERNS = (
     "config.json",
     "generation_config.json",
+    "index.json",
     "tokenizer.json",
     "tokenizer_config.json",
     "vocab.json",
@@ -240,9 +241,24 @@ def main(argv=None) -> int:
             print(f"  没下完的分片: {', '.join(left)}")
         has_config = (dest / "config.json").exists()
         has_weights = any(p.suffix == ".safetensors" for p in names)
-        print(f"\n可用性: config.json={'有' if has_config else '缺'} 权重={'有' if has_weights else '缺'}")
+        sharded = any(
+            p.name.startswith("model-") and p.suffix == ".safetensors" for p in names
+        )
+        has_index = (dest / "model.safetensors.index.json").exists()
+        index_state = "有" if has_index else ("缺" if sharded else "不需要")
+        print(
+            f"\n可用性: config.json={'有' if has_config else '缺'} 权重={'有' if has_weights else '缺'}"
+            f" 分片目录={index_state}"
+        )
         if bad:
             print(f"\n以下文件不完整，重跑本命令会接着下: {', '.join(bad)}")
+            return 1
+        if sharded and not has_index:
+            print(
+                "\n分片权重的目录文件 model.safetensors.index.json 缺失 —— 只有分片、没有目录时 "
+                "transformers 会报 `OSError: Error no file named model.safetensors`。"
+                "重跑本命令会把缺失的目录文件补上。"
+            )
             return 1
         return 0 if (has_config and has_weights) else 1
 
