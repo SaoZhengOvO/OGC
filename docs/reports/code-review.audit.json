@@ -1,0 +1,3189 @@
+{
+  "summary": {
+    "files_scanned": 27,
+    "total_lines": 6562,
+    "production_files": [
+      "src/__init__.py",
+      "src/cli.py",
+      "src/data_processor.py",
+      "src/evaluate.py",
+      "src/label_space.py",
+      "src/validate_submission.py",
+      "rag/__init__.py",
+      "rag/fusion.py",
+      "deploy/make_val_input.py",
+      "deploy/participant/run_inference.py",
+      "deploy/participant/wiring.py",
+      "tools/assign_role.py",
+      "tools/bootstrap.py",
+      "tools/emotion_profile/badcase_pack.py",
+      "tools/emotion_profile/make_prompt.py",
+      "tools/emotion_profile/make_val_input.py",
+      "tools/emotion_profile/report.py",
+      "tools/eval_loop.py",
+      "tools/fetch_model.py",
+      "tools/gen_label_block.py",
+      "docs/reports/audit_code.py",
+      "docs/reports/pack_review.py"
+    ],
+    "modules_without_docstring": [],
+    "parse_errors": [],
+    "public_functions": 276,
+    "public_without_docstring": [
+      "src/cli.py:168 cmd_eval",
+      "src/cli.py:233 cmd_validate",
+      "src/cli.py:250 build_parser",
+      "src/cli.py:301 main",
+      "src/data_processor.py:138 read_jsonl",
+      "src/data_processor.py:142 write_jsonl",
+      "src/data_processor.py:153 write_json",
+      "src/data_processor.py:177 turn_id_of",
+      "src/data_processor.py:258 infer_prefix",
+      "src/data_processor.py:81 add_response_length",
+      "src/data_processor.py:84 summary",
+      "src/data_processor.py:87 pct",
+      "src/evaluate.py:88 get_tokenizer",
+      "src/evaluate.py:116 add",
+      "src/evaluate.py:126 score",
+      "src/evaluate.py:174 add",
+      "src/evaluate.py:188 score",
+      "src/evaluate.py:213 add",
+      "src/evaluate.py:224 score",
+      "src/evaluate.py:247 to_json",
+      "src/evaluate.py:431 cosine",
+      "src/validate_submission.py:312 main",
+      "src/validate_submission.py:61 render",
+      "src/validate_submission.py:75 ok",
+      "src/validate_submission.py:78 render",
+      "deploy/make_val_input.py:36 main",
+      "deploy/participant/run_inference.py:59 parse_args",
+      "deploy/participant/run_inference.py:66 read_jsonl",
+      "deploy/participant/run_inference.py:86 validate_test_file",
+      "deploy/participant/run_inference.py:94 prepare_result_dir",
+      "deploy/participant/run_inference.py:100 load_config",
+      "deploy/participant/run_inference.py:140 model_path",
+      "deploy/participant/run_inference.py:148 api_endpoint",
+      "deploy/participant/run_inference.py:160 api_generation_options",
+      "deploy/participant/run_inference.py:175 response_content",
+      "deploy/participant/run_inference.py:195 request_chat_completion",
+      "deploy/participant/run_inference.py:237 conversation_text",
+      "deploy/participant/run_inference.py:246 extract_object",
+      "deploy/participant/run_inference.py:280 normalize_prediction",
+      "deploy/participant/run_inference.py:312 parse_prediction",
+      "deploy/participant/run_inference.py:327 synchronize",
+      "deploy/participant/run_inference.py:332 percentile95",
+      "deploy/participant/run_inference.py:337 sha256",
+      "deploy/participant/run_inference.py:345 main",
+      "tools/assign_role.py:145 main",
+      "tools/bootstrap.py:43 venv_python",
+      "tools/bootstrap.py:49 run",
+      "tools/bootstrap.py:61 main",
+      "tools/emotion_profile/badcase_pack.py:76 main",
+      "tools/emotion_profile/make_prompt.py:60 main",
+      "tools/emotion_profile/make_val_input.py:43 main",
+      "tools/emotion_profile/report.py:228 main",
+      "tools/eval_loop.py:73 read_jsonl",
+      "tools/eval_loop.py:81 write_jsonl",
+      "tools/eval_loop.py:147 run_step",
+      "tools/eval_loop.py:154 score",
+      "tools/eval_loop.py:178 extract_row",
+      "tools/eval_loop.py:194 format_cell",
+      "tools/eval_loop.py:202 append_leaderboard",
+      "tools/eval_loop.py:211 build_parser",
+      "tools/eval_loop.py:235 main",
+      "tools/fetch_model.py:62 human",
+      "tools/fetch_model.py:75 request",
+      "tools/fetch_model.py:82 list_files",
+      "tools/fetch_model.py:97 resolve_url",
+      "tools/fetch_model.py:119 wanted",
+      "tools/fetch_model.py:125 download_one",
+      "tools/fetch_model.py:198 main",
+      "tools/gen_label_block.py:88 main",
+      "tests/test_assign_role.py:37 test_accepts_case_and_space_variants",
+      "tests/test_assign_role.py:41 test_rejects_bare_five",
+      "tests/test_assign_role.py:46 test_rejects_unknown",
+      "tests/test_assign_role.py:52 test_lead_is_bold",
+      "tests/test_assign_role.py:56 test_blank_is_unassigned",
+      "tests/test_assign_role.py:60 test_plain_name_is_code_span",
+      "tests/test_assign_role.py:65 test_rejects_prose",
+      "tests/test_assign_role.py:68 test_rejects_wrong_column_count",
+      "tests/test_assign_role.py:71 test_accepts_five_column_row",
+      "tests/test_assign_role.py:81 test_changes_only_the_target_cell",
+      "tests/test_assign_role.py:90 test_preserves_crlf",
+      "tests/test_assign_role.py:95 test_distinguishes_5a_from_5b",
+      "tests/test_assign_role.py:100 test_clear_restores_unassigned",
+      "tests/test_assign_role.py:105 test_is_idempotent",
+      "tests/test_assign_role.py:110 test_missing_line_raises",
+      "tests/test_assign_role.py:115 test_table_missing_raises",
+      "tests/test_assign_role.py:121 test_lists_every_row",
+      "tests/test_assign_role.py:137 setUp",
+      "tests/test_assign_role.py:142 test_has_six_lines_including_split_five",
+      "tests/test_assign_role.py:147 test_every_line_is_either_owned_or_unassigned",
+      "tests/test_eval_loop_refs.py:22 write_lines",
+      "tests/test_eval_loop_refs.py:30 setUp",
+      "tests/test_eval_loop_refs.py:54 test_keeps_only_scoped_ids",
+      "tests/test_eval_loop_refs.py:60 test_preserves_original_lines_verbatim",
+      "tests/test_eval_loop_refs.py:65 test_raises_when_nothing_matches",
+      "tests/test_eval_loop_refs.py:71 test_raises_when_scope_has_no_ids",
+      "tests/test_eval_loop_refs.py:81 test_first_twenty_scope_matches_twenty_references",
+      "tests/test_fusion.py:43 make_sample",
+      "tests/test_fusion.py:57 setUp",
+      "tests/test_fusion.py:67 write_prompt",
+      "tests/test_fusion.py:72 test_returns_system_then_user",
+      "tests/test_fusion.py:77 test_system_prompt_is_used_verbatim",
+      "tests/test_fusion.py:84 test_composes_from_prompt_files_when_not_given",
+      "tests/test_fusion.py:95 test_raises_unavailable_without_any_prompt",
+      "tests/test_fusion.py:99 test_blank_system_prompt_is_treated_as_missing",
+      "tests/test_fusion.py:103 test_disabled_by_env_flag",
+      "tests/test_fusion.py:115 test_user_content_matches_official_shape",
+      "tests/test_fusion.py:125 test_single_turn_truncation_keeps_head_and_tail",
+      "tests/test_fusion.py:133 test_short_text_untouched",
+      "tests/test_fusion.py:136 test_target_turn_survives_turn_limit",
+      "tests/test_fusion.py:144 test_target_turn_survives_character_budget",
+      "tests/test_fusion.py:151 test_budget_drops_earliest_first",
+      "tests/test_fusion.py:161 test_build_messages_keeps_target_turn_text",
+      "tests/test_fusion.py:170 test_turns_after_target_are_never_included",
+      "tests/test_fusion.py:186 test_normal_item_is_used",
+      "tests/test_fusion.py:192 test_self_retrieval_is_dropped",
+      "tests/test_fusion.py:199 test_val_retrieval_is_dropped",
+      "tests/test_fusion.py:206 test_item_without_text_is_dropped",
+      "tests/test_fusion.py:214 test_non_list_retrieved_is_tolerated",
+      "tests/test_fusion.py:218 test_empty_retrieval_produces_no_section",
+      "tests/test_fusion.py:224 test_clean_messages_pass",
+      "tests/test_fusion.py:229 test_detects_content_after_target_turn",
+      "tests/test_fusion.py:240 test_detects_missing_target_turn",
+      "tests/test_fusion.py:249 test_detects_bad_role_and_non_string_content",
+      "tests/test_fusion.py:257 test_empty_messages_reported",
+      "tests/test_fusion.py:262 test_reports_sane_numbers",
+      "tests/test_fusion.py:269 test_tolerates_broken_sample",
+      "tests/test_fusion.py:276 test_content_and_text_both_accepted",
+      "tests/test_fusion.py:283 test_role_defaults_to_user",
+      "tests/test_fusion.py:298 setUpClass",
+      "tests/test_fusion.py:304 setUp",
+      "tests/test_fusion.py:343 test_accepts_system_prompt_detection",
+      "tests/test_fusion.py:346 legacy",
+      "tests/test_pipeline.py:34 write_jsonl",
+      "tests/test_pipeline.py:55 empty_target",
+      "tests/test_pipeline.py:65 test_emotion_space_has_17_values",
+      "tests/test_pipeline.py:71 test_profile_dimensions_are_three",
+      "tests/test_pipeline.py:79 setUp",
+      "tests/test_pipeline.py:83 tearDown",
+      "tests/test_pipeline.py:102 test_duplicate_id_is_caught",
+      "tests/test_pipeline.py:116 test_enum_and_pattern_violations_are_caught",
+      "tests/test_pipeline.py:147 test_bad_json_line_reports_line_number",
+      "tests/test_pipeline.py:181 test_turn_mismatch_dropped_by_default",
+      "tests/test_pipeline.py:188 test_turn_mismatch_kept_when_asked",
+      "tests/test_pipeline.py:219 test_long_verbatim_reuse_is_dropped_as_leak",
+      "tests/test_pipeline.py:260 test_missing_conversation_id_raises_with_context",
+      "tests/test_pipeline.py:308 test_perfect_prediction_scores_one",
+      "tests/test_pipeline.py:332 test_missing_prediction_is_warned_and_zeroed",
+      "tests/test_pipeline.py:375 test_char_tokenizer_is_default_and_unknown_is_rejected",
+      "tests/test_wiring.py:33 conversation_text",
+      "tests/test_wiring.py:49 assert_official",
+      "tests/test_wiring.py:55 test_rag_missing_falls_back",
+      "tests/test_wiring.py:61 test_fusion_raises_falls_back",
+      "tests/test_wiring.py:68 test_fusion_returns_garbage_falls_back",
+      "tests/test_wiring.py:75 test_valid_fusion_output_is_used",
+      "tests/test_wiring.py:87 test_fusion_receives_retrieved_list",
+      "tests/test_wiring.py:100 test_missing_module_returns_empty_list",
+      "tests/test_wiring.py:103 test_raising_module_returns_empty_list",
+      "tests/test_wiring.py:115 test_non_list_and_non_dict_are_filtered",
+      "tests/test_wiring.py:135 setUp",
+      "tests/test_wiring.py:142 write",
+      "tests/test_wiring.py:145 test_no_prompts_yields_official_only",
+      "tests/test_wiring.py:148 test_blocks_are_appended_in_order",
+      "tests/test_wiring.py:155 test_missing_block_is_skipped_silently",
+      "tests/test_wiring.py:161 test_empty_file_is_treated_as_missing",
+      "tests/test_wiring.py:165 test_txt_extension_is_accepted",
+      "tests/test_wiring.py:169 test_md_wins_over_txt",
+      "tests/test_wiring.py:180 test_official_copy_has_no_wiring_import",
+      "tests/test_wiring.py:62 boom",
+      "tests/test_wiring.py:76 good",
+      "tests/test_wiring.py:90 spy",
+      "tests/test_wiring.py:107 boom",
+      "docs/reports/audit_code.py:92 iter_python_files",
+      "docs/reports/audit_code.py:105 rel",
+      "docs/reports/audit_code.py:117 is_conventional_test_symbol",
+      "docs/reports/audit_code.py:137 scan_file",
+      "docs/reports/audit_code.py:203 normalize",
+      "docs/reports/audit_code.py:238 summarize",
+      "docs/reports/audit_code.py:315 print_report",
+      "docs/reports/audit_code.py:350 main",
+      "docs/reports/audit_code.py:239 places",
+      "docs/reports/audit_code.py:321 show",
+      "docs/reports/pack_review.py:53 human",
+      "docs/reports/pack_review.py:104 render_manifest",
+      "docs/reports/pack_review.py:137 main"
+    ],
+    "public_without_docstring_production": [
+      "src/cli.py:168 cmd_eval",
+      "src/cli.py:233 cmd_validate",
+      "src/cli.py:250 build_parser",
+      "src/cli.py:301 main",
+      "src/data_processor.py:138 read_jsonl",
+      "src/data_processor.py:142 write_jsonl",
+      "src/data_processor.py:153 write_json",
+      "src/data_processor.py:177 turn_id_of",
+      "src/data_processor.py:258 infer_prefix",
+      "src/data_processor.py:81 add_response_length",
+      "src/data_processor.py:84 summary",
+      "src/data_processor.py:87 pct",
+      "src/evaluate.py:88 get_tokenizer",
+      "src/evaluate.py:116 add",
+      "src/evaluate.py:126 score",
+      "src/evaluate.py:174 add",
+      "src/evaluate.py:188 score",
+      "src/evaluate.py:213 add",
+      "src/evaluate.py:224 score",
+      "src/evaluate.py:247 to_json",
+      "src/evaluate.py:431 cosine",
+      "src/validate_submission.py:312 main",
+      "src/validate_submission.py:61 render",
+      "src/validate_submission.py:75 ok",
+      "src/validate_submission.py:78 render",
+      "deploy/make_val_input.py:36 main",
+      "deploy/participant/run_inference.py:59 parse_args",
+      "deploy/participant/run_inference.py:66 read_jsonl",
+      "deploy/participant/run_inference.py:86 validate_test_file",
+      "deploy/participant/run_inference.py:94 prepare_result_dir",
+      "deploy/participant/run_inference.py:100 load_config",
+      "deploy/participant/run_inference.py:140 model_path",
+      "deploy/participant/run_inference.py:148 api_endpoint",
+      "deploy/participant/run_inference.py:160 api_generation_options",
+      "deploy/participant/run_inference.py:175 response_content",
+      "deploy/participant/run_inference.py:195 request_chat_completion",
+      "deploy/participant/run_inference.py:237 conversation_text",
+      "deploy/participant/run_inference.py:246 extract_object",
+      "deploy/participant/run_inference.py:280 normalize_prediction",
+      "deploy/participant/run_inference.py:312 parse_prediction",
+      "deploy/participant/run_inference.py:327 synchronize",
+      "deploy/participant/run_inference.py:332 percentile95",
+      "deploy/participant/run_inference.py:337 sha256",
+      "deploy/participant/run_inference.py:345 main",
+      "tools/assign_role.py:145 main",
+      "tools/bootstrap.py:43 venv_python",
+      "tools/bootstrap.py:49 run",
+      "tools/bootstrap.py:61 main",
+      "tools/emotion_profile/badcase_pack.py:76 main",
+      "tools/emotion_profile/make_prompt.py:60 main",
+      "tools/emotion_profile/make_val_input.py:43 main",
+      "tools/emotion_profile/report.py:228 main",
+      "tools/eval_loop.py:73 read_jsonl",
+      "tools/eval_loop.py:81 write_jsonl",
+      "tools/eval_loop.py:147 run_step",
+      "tools/eval_loop.py:154 score",
+      "tools/eval_loop.py:178 extract_row",
+      "tools/eval_loop.py:194 format_cell",
+      "tools/eval_loop.py:202 append_leaderboard",
+      "tools/eval_loop.py:211 build_parser",
+      "tools/eval_loop.py:235 main",
+      "tools/fetch_model.py:62 human",
+      "tools/fetch_model.py:75 request",
+      "tools/fetch_model.py:82 list_files",
+      "tools/fetch_model.py:97 resolve_url",
+      "tools/fetch_model.py:119 wanted",
+      "tools/fetch_model.py:125 download_one",
+      "tools/fetch_model.py:198 main",
+      "tools/gen_label_block.py:88 main",
+      "tests/test_assign_role.py:137 setUp",
+      "tests/test_eval_loop_refs.py:22 write_lines",
+      "tests/test_eval_loop_refs.py:30 setUp",
+      "tests/test_fusion.py:43 make_sample",
+      "tests/test_fusion.py:57 setUp",
+      "tests/test_fusion.py:67 write_prompt",
+      "tests/test_fusion.py:298 setUpClass",
+      "tests/test_fusion.py:304 setUp",
+      "tests/test_fusion.py:346 legacy",
+      "tests/test_pipeline.py:34 write_jsonl",
+      "tests/test_pipeline.py:55 empty_target",
+      "tests/test_pipeline.py:79 setUp",
+      "tests/test_pipeline.py:83 tearDown",
+      "tests/test_wiring.py:33 conversation_text",
+      "tests/test_wiring.py:49 assert_official",
+      "tests/test_wiring.py:135 setUp",
+      "tests/test_wiring.py:142 write",
+      "tests/test_wiring.py:62 boom",
+      "tests/test_wiring.py:76 good",
+      "tests/test_wiring.py:90 spy",
+      "tests/test_wiring.py:107 boom",
+      "docs/reports/audit_code.py:92 iter_python_files",
+      "docs/reports/audit_code.py:105 rel",
+      "docs/reports/audit_code.py:117 is_conventional_test_symbol",
+      "docs/reports/audit_code.py:137 scan_file",
+      "docs/reports/audit_code.py:203 normalize",
+      "docs/reports/audit_code.py:238 summarize",
+      "docs/reports/audit_code.py:315 print_report",
+      "docs/reports/audit_code.py:350 main",
+      "docs/reports/audit_code.py:239 places",
+      "docs/reports/audit_code.py:321 show",
+      "docs/reports/pack_review.py:53 human",
+      "docs/reports/pack_review.py:104 render_manifest",
+      "docs/reports/pack_review.py:137 main"
+    ],
+    "public_without_docstring_tests": 81,
+    "public_without_return_annotation": [
+      "tools/eval_loop.py:73 read_jsonl",
+      "tools/fetch_model.py:75 request",
+      "tests/test_fusion.py:346 legacy",
+      "tests/test_wiring.py:62 boom",
+      "tests/test_wiring.py:76 good",
+      "tests/test_wiring.py:90 spy",
+      "tests/test_wiring.py:107 boom"
+    ],
+    "public_without_param_annotations": [
+      "tools/bootstrap.py:61 main -> ['argv']",
+      "tools/eval_loop.py:81 write_jsonl -> ['rows']",
+      "tools/eval_loop.py:147 run_step -> ['cmd', 'env']",
+      "tools/eval_loop.py:194 format_cell -> ['value']",
+      "tools/eval_loop.py:235 main -> ['argv']",
+      "tools/fetch_model.py:198 main -> ['argv']",
+      "tests/test_fusion.py:43 make_sample -> ['**overrides']",
+      "tests/test_fusion.py:346 legacy -> ['sample', 'retrieved']",
+      "tests/test_pipeline.py:42 make_record -> ['**overrides']",
+      "tests/test_wiring.py:62 boom -> ['sample', 'retrieved']",
+      "tests/test_wiring.py:76 good -> ['sample', 'retrieved']",
+      "tests/test_wiring.py:90 spy -> ['sample', 'retrieved']",
+      "tests/test_wiring.py:107 boom -> ['sample', 'k']",
+      "docs/reports/audit_code.py:239 places -> ['predicate']"
+    ],
+    "classes_without_docstring": [
+      "src/evaluate.py:169 RougeLAccumulator",
+      "src/evaluate.py:242 EvaluationReport",
+      "src/validate_submission.py:55 ValidationIssue",
+      "src/validate_submission.py:66 ValidationResult",
+      "tests/test_assign_role.py:36 NormalizeLineTest",
+      "tests/test_assign_role.py:51 RenderOwnerTest",
+      "tests/test_assign_role.py:64 SplitRowTest",
+      "tests/test_assign_role.py:80 ApplyAssignmentTest",
+      "tests/test_assign_role.py:120 DescribeTest",
+      "tests/test_eval_loop_refs.py:29 WriteReferenceSubsetTest",
+      "tests/test_pipeline.py:64 LabelSpaceTest",
+      "tests/test_pipeline.py:78 ValidatorTest",
+      "tests/test_pipeline.py:285 EvaluateTest",
+      "tests/test_wiring.py:99 RetrieveTests"
+    ],
+    "windows_abs_paths": [
+      {
+        "place": "tools/fetch_model.py:14",
+        "text": "python tools/fetch_model.py --repo Qwen/Qwen2.5-7B-Instruct --dest D:/models/qwen7b"
+      }
+    ],
+    "container_abs_paths": [],
+    "markers": [],
+    "long_lines": [
+      {
+        "place": "deploy/participant/run_inference.py:39",
+        "length": 178
+      },
+      {
+        "place": "deploy/participant/run_inference.py:40",
+        "length": 203
+      },
+      {
+        "place": "deploy/participant/run_inference.py:41",
+        "length": 176
+      },
+      {
+        "place": "deploy/participant/run_inference.py:76",
+        "length": 123
+      },
+      {
+        "place": "deploy/participant/run_inference.py:240",
+        "length": 131
+      },
+      {
+        "place": "deploy/participant/run_inference.py:381",
+        "length": 122
+      },
+      {
+        "place": "deploy/participant/run_inference.py:432",
+        "length": 125
+      },
+      {
+        "place": "deploy/participant/run_inference.py:479",
+        "length": 130
+      },
+      {
+        "place": "tools/emotion_profile/report.py:146",
+        "length": 127
+      },
+      {
+        "place": "tools/emotion_profile/report.py:215",
+        "length": 121
+      },
+      {
+        "place": "tools/eval_loop.py:218",
+        "length": 125
+      },
+      {
+        "place": "tests/test_eval_loop_refs.py:62",
+        "length": 121
+      }
+    ],
+    "cjk_identifiers": [],
+    "bare_excepts": [
+      {
+        "place": "deploy/participant/run_inference.py:275",
+        "kind": "except_pass"
+      }
+    ],
+    "duplicate_blocks": [
+      {
+        "first_line": "with path.open(encoding=\"utf-8\") as handle:",
+        "occurrences": [
+          "tools/emotion_profile/badcase_pack.py:40",
+          "tools/emotion_profile/make_val_input.py:32",
+          "tools/emotion_profile/report.py:36"
+        ]
+      },
+      {
+        "first_line": "with Path(path).open(\"r\", encoding=\"utf-8\") as handle:",
+        "occurrences": [
+          "src/data_processor.py:127",
+          "src/evaluate.py:478"
+        ]
+      },
+      {
+        "first_line": "try:",
+        "occurrences": [
+          "rag/fusion.py:458",
+          "deploy/participant/wiring.py:96"
+        ]
+      },
+      {
+        "first_line": "if path.is_file():",
+        "occurrences": [
+          "rag/fusion.py:459",
+          "deploy/participant/wiring.py:97"
+        ]
+      },
+      {
+        "first_line": "text = path.read_text(encoding=\"utf-8\").strip()",
+        "occurrences": [
+          "rag/fusion.py:460",
+          "deploy/participant/wiring.py:98"
+        ]
+      },
+      {
+        "first_line": "for number, line in enumerate(handle, 1):",
+        "occurrences": [
+          "tools/emotion_profile/badcase_pack.py:41",
+          "tools/emotion_profile/make_val_input.py:33"
+        ]
+      },
+      {
+        "first_line": "line = line.strip()",
+        "occurrences": [
+          "tools/emotion_profile/badcase_pack.py:42",
+          "tools/emotion_profile/make_val_input.py:34"
+        ]
+      },
+      {
+        "first_line": "if not line:",
+        "occurrences": [
+          "tools/emotion_profile/badcase_pack.py:43",
+          "tools/emotion_profile/make_val_input.py:35"
+        ]
+      }
+    ]
+  },
+  "per_file": [
+    {
+      "file": "src/__init__.py",
+      "lines": 15,
+      "text_checks_skipped": false,
+      "module_docstring": true,
+      "parse_error": null,
+      "public_functions": [],
+      "private_functions": 0,
+      "classes": [],
+      "windows_abs_path": [],
+      "container_abs_path": [],
+      "markers": [],
+      "long_lines": [],
+      "cjk_identifiers": [],
+      "bare_excepts": [],
+      "has_main_guard": false
+    },
+    {
+      "file": "src/cli.py",
+      "lines": 307,
+      "text_checks_skipped": false,
+      "module_docstring": true,
+      "parse_error": null,
+      "public_functions": [
+        {
+          "name": "display_path",
+          "line": 31,
+          "docstring": true,
+          "missing_annotations": [],
+          "missing_return": false
+        },
+        {
+          "name": "cmd_build",
+          "line": 67,
+          "docstring": true,
+          "missing_annotations": [],
+          "missing_return": false
+        },
+        {
+          "name": "cmd_eval",
+          "line": 168,
+          "docstring": false,
+          "missing_annotations": [],
+          "missing_return": false
+        },
+        {
+          "name": "cmd_validate",
+          "line": 233,
+          "docstring": false,
+          "missing_annotations": [],
+          "missing_return": false
+        },
+        {
+          "name": "build_parser",
+          "line": 250,
+          "docstring": false,
+          "missing_annotations": [],
+          "missing_return": false
+        },
+        {
+          "name": "main",
+          "line": 301,
+          "docstring": false,
+          "missing_annotations": [],
+          "missing_return": false
+        }
+      ],
+      "private_functions": 1,
+      "classes": [],
+      "windows_abs_path": [],
+      "container_abs_path": [],
+      "markers": [],
+      "long_lines": [],
+      "cjk_identifiers": [],
+      "bare_excepts": [],
+      "has_main_guard": true
+    },
+    {
+      "file": "src/data_processor.py",
+      "lines": 464,
+      "text_checks_skipped": false,
+      "module_docstring": true,
+      "parse_error": null,
+      "public_functions": [
+        {
+          "name": "iter_jsonl",
+          "line": 125,
+          "docstring": true,
+          "missing_annotations": [],
+          "missing_return": false
+        },
+        {
+          "name": "read_jsonl",
+          "line": 138,
+          "docstring": false,
+          "missing_annotations": [],
+          "missing_return": false
+        },
+        {
+          "name": "write_jsonl",
+          "line": 142,
+          "docstring": false,
+          "missing_annotations": [],
+          "missing_return": false
+        },
+        {
+          "name": "write_json",
+          "line": 153,
+          "docstring": false,
+          "missing_annotations": [],
+          "missing_return": false
+        },
+        {
+          "name": "turn_content",
+          "line": 163,
+          "docstring": true,
+          "missing_annotations": [],
+          "missing_return": false
+        },
+        {
+          "name": "turn_id_of",
+          "line": 177,
+          "docstring": false,
+          "missing_annotations": [],
+          "missing_return": false
+        },
+        {
+          "name": "longest_common_substring_len",
+          "line": 184,
+          "docstring": true,
+          "missing_annotations": [],
+          "missing_return": false
+        },
+        {
+          "name": "response_overlap_ratio",
+          "line": 210,
+          "docstring": true,
+          "missing_annotations": [],
+          "missing_return": false
+        },
+        {
+          "name": "make_sample_id",
+          "line": 244,
+          "docstring": true,
+          "missing_annotations": [],
+          "missing_return": false
+        },
+        {
+          "name": "infer_prefix",
+          "line": 258,
+          "docstring": false,
+          "missing_annotations": [],
+          "missing_return": false
+        },
+        {
+          "name": "build_history",
+          "line": 265,
+          "docstring": true,
+          "missing_annotations": [],
+          "missing_return": false
+        },
+        {
+          "name": "convert_conversations",
+          "line": 281,
+          "docstring": true,
+          "missing_annotations": [],
+          "missing_return": false
+        },
+        {
+          "name": "load_inference_samples",
+          "line": 405,
+          "docstring": true,
+          "missing_annotations": [],
+          "missing_return": false
+        },
+        {
+          "name": "filter_samples",
+          "line": 442,
+          "docstring": true,
+          "missing_annotations": [],
+          "missing_return": false
+        },
+        {
+          "name": "add_response_length",
+          "line": 81,
+          "docstring": false,
+          "missing_annotations": [],
+          "missing_return": false
+        },
+        {
+          "name": "summary",
+          "line": 84,
+          "docstring": false,
+          "missing_annotations": [],
+          "missing_return": false
+        },
+        {
+          "name": "pct",
+          "line": 87,
+          "docstring": false,
+          "missing_annotations": [],
+          "missing_return": false
+        }
+      ],
+      "private_functions": 0,
+      "classes": [
+        {
+          "name": "DataQuality",
+          "line": 59,
+          "docstring": true
+        },
+        {
+          "name": "DataContractError",
+          "line": 118,
+          "docstring": true
+        }
+      ],
+      "windows_abs_path": [],
+      "container_abs_path": [],
+      "markers": [],
+      "long_lines": [],
+      "cjk_identifiers": [],
+      "bare_excepts": [],
+      "has_main_guard": false
+    },
+    {
+      "file": "src/evaluate.py",
+      "lines": 487,
+      "text_checks_skipped": false,
+      "module_docstring": true,
+      "parse_error": null,
+      "public_functions": [
+        {
+          "name": "char_tokenize",
+          "line": 55,
+          "docstring": true,
+          "missing_annotations": [],
+          "missing_return": false
+        },
+        {
+          "name": "jieba_tokenize",
+          "line": 81,
+          "docstring": true,
+          "missing_annotations": [],
+          "missing_return": false
+        },
+        {
+          "name": "get_tokenizer",
+          "line": 88,
+          "docstring": false,
+          "missing_annotations": [],
+          "missing_return": false
+        },
+        {
+          "name": "lcs_length",
+          "line": 150,
+          "docstring": true,
+          "missing_annotations": [],
+          "missing_return": false
+        },
+        {
+          "name": "evaluate_predictions",
+          "line": 253,
+          "docstring": true,
+          "missing_annotations": [],
+          "missing_return": false
+        },
+        {
+          "name": "load_references",
+          "line": 459,
+          "docstring": true,
+          "missing_annotations": [],
+          "missing_return": false
+        },
+        {
+          "name": "load_predictions",
+          "line": 475,
+          "docstring": true,
+          "missing_annotations": [],
+          "missing_return": false
+        },
+        {
+          "name": "add",
+          "line": 116,
+          "docstring": false,
+          "missing_annotations": [],
+          "missing_return": false
+        },
+        {
+          "name": "score",
+          "line": 126,
+          "docstring": false,
+          "missing_annotations": [],
+          "missing_return": false
+        },
+        {
+          "name": "add",
+          "line": 174,
+          "docstring": false,
+          "missing_annotations": [],
+          "missing_return": false
+        },
+        {
+          "name": "score",
+          "line": 188,
+          "docstring": false,
+          "missing_annotations": [],
+          "missing_return": false
+        },
+        {
+          "name": "add",
+          "line": 213,
+          "docstring": false,
+          "missing_annotations": [],
+          "missing_return": false
+        },
+        {
+          "name": "score",
+          "line": 224,
+          "docstring": false,
+          "missing_annotations": [],
+          "missing_return": false
+        },
+        {
+          "name": "to_json",
+          "line": 247,
+          "docstring": false,
+          "missing_annotations": [],
+          "missing_return": false
+        },
+        {
+          "name": "cosine",
+          "line": 431,
+          "docstring": false,
+          "missing_annotations": [],
+          "missing_return": false
+        }
+      ],
+      "private_functions": 2,
+      "classes": [
+        {
+          "name": "BleuAccumulator",
+          "line": 107,
+          "docstring": true
+        },
+        {
+          "name": "RougeLAccumulator",
+          "line": 169,
+          "docstring": false
+        },
+        {
+          "name": "SetAccumulator",
+          "line": 203,
+          "docstring": true
+        },
+        {
+          "name": "EvaluationReport",
+          "line": 242,
+          "docstring": false
+        }
+      ],
+      "windows_abs_path": [],
+      "container_abs_path": [],
+      "markers": [],
+      "long_lines": [],
+      "cjk_identifiers": [],
+      "bare_excepts": [],
+      "has_main_guard": false
+    },
+    {
+      "file": "src/label_space.py",
+      "lines": 195,
+      "text_checks_skipped": false,
+      "module_docstring": true,
+      "parse_error": null,
+      "public_functions": [
+        {
+          "name": "normalize_emotion",
+          "line": 123,
+          "docstring": true,
+          "missing_annotations": [],
+          "missing_return": false
+        },
+        {
+          "name": "normalize_profile_dimension",
+          "line": 133,
+          "docstring": true,
+          "missing_annotations": [],
+          "missing_return": false
+        },
+        {
+          "name": "normalize_profile",
+          "line": 163,
+          "docstring": true,
+          "missing_annotations": [],
+          "missing_return": false
+        },
+        {
+          "name": "export_label_space",
+          "line": 169,
+          "docstring": true,
+          "missing_annotations": [],
+          "missing_return": false
+        }
+      ],
+      "private_functions": 1,
+      "classes": [],
+      "windows_abs_path": [],
+      "container_abs_path": [],
+      "markers": [],
+      "long_lines": [],
+      "cjk_identifiers": [],
+      "bare_excepts": [],
+      "has_main_guard": true
+    },
+    {
+      "file": "src/validate_submission.py",
+      "lines": 347,
+      "text_checks_skipped": false,
+      "module_docstring": true,
+      "parse_error": null,
+      "public_functions": [
+        {
+          "name": "validate_submission",
+          "line": 109,
+          "docstring": true,
+          "missing_annotations": [],
+          "missing_return": false
+        },
+        {
+          "name": "validate_performance_report",
+          "line": 301,
+          "docstring": true,
+          "missing_annotations": [],
+          "missing_return": false
+        },
+        {
+          "name": "main",
+          "line": 312,
+          "docstring": false,
+          "missing_annotations": [],
+          "missing_return": false
+        },
+        {
+          "name": "render",
+          "line": 61,
+          "docstring": false,
+          "missing_annotations": [],
+          "missing_return": false
+        },
+        {
+          "name": "ok",
+          "line": 75,
+          "docstring": false,
+          "missing_annotations": [],
+          "missing_return": false
+        },
+        {
+          "name": "render",
+          "line": 78,
+          "docstring": false,
+          "missing_annotations": [],
+          "missing_return": false
+        }
+      ],
+      "private_functions": 1,
+      "classes": [
+        {
+          "name": "ValidationIssue",
+          "line": 55,
+          "docstring": false
+        },
+        {
+          "name": "ValidationResult",
+          "line": 66,
+          "docstring": false
+        }
+      ],
+      "windows_abs_path": [],
+      "container_abs_path": [],
+      "markers": [],
+      "long_lines": [],
+      "cjk_identifiers": [],
+      "bare_excepts": [],
+      "has_main_guard": true
+    },
+    {
+      "file": "rag/__init__.py",
+      "lines": 8,
+      "text_checks_skipped": false,
+      "module_docstring": true,
+      "parse_error": null,
+      "public_functions": [],
+      "private_functions": 0,
+      "classes": [],
+      "windows_abs_path": [],
+      "container_abs_path": [],
+      "markers": [],
+      "long_lines": [],
+      "cjk_identifiers": [],
+      "bare_excepts": [],
+      "has_main_guard": false
+    },
+    {
+      "file": "rag/fusion.py",
+      "lines": 545,
+      "text_checks_skipped": false,
+      "module_docstring": true,
+      "parse_error": null,
+      "public_functions": [
+        {
+          "name": "prompt_dirs",
+          "line": 85,
+          "docstring": true,
+          "missing_annotations": [],
+          "missing_return": false
+        },
+        {
+          "name": "truncate_middle",
+          "line": 153,
+          "docstring": true,
+          "missing_annotations": [],
+          "missing_return": false
+        },
+        {
+          "name": "select_turns",
+          "line": 189,
+          "docstring": true,
+          "missing_annotations": [],
+          "missing_return": false
+        },
+        {
+          "name": "render_conversation",
+          "line": 254,
+          "docstring": true,
+          "missing_annotations": [],
+          "missing_return": false
+        },
+        {
+          "name": "render_retrieved",
+          "line": 303,
+          "docstring": true,
+          "missing_annotations": [],
+          "missing_return": false
+        },
+        {
+          "name": "render_memories",
+          "line": 337,
+          "docstring": true,
+          "missing_annotations": [],
+          "missing_return": false
+        },
+        {
+          "name": "assert_no_leak",
+          "line": 354,
+          "docstring": true,
+          "missing_annotations": [],
+          "missing_return": false
+        },
+        {
+          "name": "context_stats",
+          "line": 416,
+          "docstring": true,
+          "missing_annotations": [],
+          "missing_return": false
+        },
+        {
+          "name": "compose_prompt_from_files",
+          "line": 468,
+          "docstring": true,
+          "missing_annotations": [],
+          "missing_return": false
+        },
+        {
+          "name": "build_messages",
+          "line": 484,
+          "docstring": true,
+          "missing_annotations": [],
+          "missing_return": false
+        }
+      ],
+      "private_functions": 8,
+      "classes": [
+        {
+          "name": "FusionDisabled",
+          "line": 103,
+          "docstring": true
+        },
+        {
+          "name": "FusionUnavailable",
+          "line": 107,
+          "docstring": true
+        }
+      ],
+      "windows_abs_path": [],
+      "container_abs_path": [],
+      "markers": [],
+      "long_lines": [],
+      "cjk_identifiers": [],
+      "bare_excepts": [],
+      "has_main_guard": false
+    },
+    {
+      "file": "deploy/make_val_input.py",
+      "lines": 57,
+      "text_checks_skipped": false,
+      "module_docstring": true,
+      "parse_error": null,
+      "public_functions": [
+        {
+          "name": "main",
+          "line": 36,
+          "docstring": false,
+          "missing_annotations": [],
+          "missing_return": false
+        }
+      ],
+      "private_functions": 0,
+      "classes": [],
+      "windows_abs_path": [],
+      "container_abs_path": [],
+      "markers": [],
+      "long_lines": [],
+      "cjk_identifiers": [],
+      "bare_excepts": [],
+      "has_main_guard": true
+    },
+    {
+      "file": "deploy/participant/run_inference.py",
+      "lines": 485,
+      "text_checks_skipped": false,
+      "module_docstring": true,
+      "parse_error": null,
+      "public_functions": [
+        {
+          "name": "parse_args",
+          "line": 59,
+          "docstring": false,
+          "missing_annotations": [],
+          "missing_return": false
+        },
+        {
+          "name": "read_jsonl",
+          "line": 66,
+          "docstring": false,
+          "missing_annotations": [],
+          "missing_return": false
+        },
+        {
+          "name": "validate_test_file",
+          "line": 86,
+          "docstring": false,
+          "missing_annotations": [],
+          "missing_return": false
+        },
+        {
+          "name": "prepare_result_dir",
+          "line": 94,
+          "docstring": false,
+          "missing_annotations": [],
+          "missing_return": false
+        },
+        {
+          "name": "load_config",
+          "line": 100,
+          "docstring": false,
+          "missing_annotations": [],
+          "missing_return": false
+        },
+        {
+          "name": "model_path",
+          "line": 140,
+          "docstring": false,
+          "missing_annotations": [],
+          "missing_return": false
+        },
+        {
+          "name": "api_endpoint",
+          "line": 148,
+          "docstring": false,
+          "missing_annotations": [],
+          "missing_return": false
+        },
+        {
+          "name": "api_generation_options",
+          "line": 160,
+          "docstring": false,
+          "missing_annotations": [],
+          "missing_return": false
+        },
+        {
+          "name": "response_content",
+          "line": 175,
+          "docstring": false,
+          "missing_annotations": [],
+          "missing_return": false
+        },
+        {
+          "name": "request_chat_completion",
+          "line": 195,
+          "docstring": false,
+          "missing_annotations": [],
+          "missing_return": false
+        },
+        {
+          "name": "conversation_text",
+          "line": 237,
+          "docstring": false,
+          "missing_annotations": [],
+          "missing_return": false
+        },
+        {
+          "name": "extract_object",
+          "line": 246,
+          "docstring": false,
+          "missing_annotations": [],
+          "missing_return": false
+        },
+        {
+          "name": "recover_response_text",
+          "line": 261,
+          "docstring": true,
+          "missing_annotations": [],
+          "missing_return": false
+        },
+        {
+          "name": "normalize_prediction",
+          "line": 280,
+          "docstring": false,
+          "missing_annotations": [],
+          "missing_return": false
+        },
+        {
+          "name": "parse_prediction",
+          "line": 312,
+          "docstring": false,
+          "missing_annotations": [],
+          "missing_return": false
+        },
+        {
+          "name": "synchronize",
+          "line": 327,
+          "docstring": false,
+          "missing_annotations": [],
+          "missing_return": false
+        },
+        {
+          "name": "percentile95",
+          "line": 332,
+          "docstring": false,
+          "missing_annotations": [],
+          "missing_return": false
+        },
+        {
+          "name": "sha256",
+          "line": 337,
+          "docstring": false,
+          "missing_annotations": [],
+          "missing_return": false
+        },
+        {
+          "name": "main",
+          "line": 345,
+          "docstring": false,
+          "missing_annotations": [],
+          "missing_return": false
+        }
+      ],
+      "private_functions": 0,
+      "classes": [],
+      "windows_abs_path": [],
+      "container_abs_path": [],
+      "markers": [],
+      "long_lines": [
+        {
+          "line": 39,
+          "length": 178
+        },
+        {
+          "line": 40,
+          "length": 203
+        },
+        {
+          "line": 41,
+          "length": 176
+        },
+        {
+          "line": 76,
+          "length": 123
+        },
+        {
+          "line": 240,
+          "length": 131
+        },
+        {
+          "line": 381,
+          "length": 122
+        },
+        {
+          "line": 432,
+          "length": 125
+        },
+        {
+          "line": 479,
+          "length": 130
+        }
+      ],
+      "cjk_identifiers": [],
+      "bare_excepts": [
+        {
+          "line": 275,
+          "kind": "except_pass"
+        }
+      ],
+      "has_main_guard": true
+    },
+    {
+      "file": "deploy/participant/wiring.py",
+      "lines": 228,
+      "text_checks_skipped": false,
+      "module_docstring": true,
+      "parse_error": null,
+      "public_functions": [
+        {
+          "name": "load_prompt_block",
+          "line": 92,
+          "docstring": true,
+          "missing_annotations": [],
+          "missing_return": false
+        },
+        {
+          "name": "compose_system_prompt",
+          "line": 106,
+          "docstring": true,
+          "missing_annotations": [],
+          "missing_return": false
+        },
+        {
+          "name": "retrieve_memories",
+          "line": 116,
+          "docstring": true,
+          "missing_annotations": [],
+          "missing_return": false
+        },
+        {
+          "name": "default_messages",
+          "line": 146,
+          "docstring": true,
+          "missing_annotations": [],
+          "missing_return": false
+        },
+        {
+          "name": "build_messages",
+          "line": 173,
+          "docstring": true,
+          "missing_annotations": [],
+          "missing_return": false
+        },
+        {
+          "name": "describe",
+          "line": 199,
+          "docstring": true,
+          "missing_annotations": [],
+          "missing_return": false
+        },
+        {
+          "name": "log_wiring",
+          "line": 215,
+          "docstring": true,
+          "missing_annotations": [],
+          "missing_return": false
+        }
+      ],
+      "private_functions": 4,
+      "classes": [],
+      "windows_abs_path": [],
+      "container_abs_path": [],
+      "markers": [],
+      "long_lines": [],
+      "cjk_identifiers": [],
+      "bare_excepts": [],
+      "has_main_guard": false
+    },
+    {
+      "file": "tools/assign_role.py",
+      "lines": 196,
+      "text_checks_skipped": false,
+      "module_docstring": true,
+      "parse_error": null,
+      "public_functions": [
+        {
+          "name": "normalize_line",
+          "line": 50,
+          "docstring": true,
+          "missing_annotations": [],
+          "missing_return": false
+        },
+        {
+          "name": "render_owner",
+          "line": 64,
+          "docstring": true,
+          "missing_annotations": [],
+          "missing_return": false
+        },
+        {
+          "name": "split_row",
+          "line": 74,
+          "docstring": true,
+          "missing_annotations": [],
+          "missing_return": false
+        },
+        {
+          "name": "iter_role_rows",
+          "line": 87,
+          "docstring": true,
+          "missing_annotations": [],
+          "missing_return": false
+        },
+        {
+          "name": "apply_assignment",
+          "line": 100,
+          "docstring": true,
+          "missing_annotations": [],
+          "missing_return": false
+        },
+        {
+          "name": "describe",
+          "line": 125,
+          "docstring": true,
+          "missing_annotations": [],
+          "missing_return": false
+        },
+        {
+          "name": "main",
+          "line": 145,
+          "docstring": false,
+          "missing_annotations": [],
+          "missing_return": false
+        }
+      ],
+      "private_functions": 2,
+      "classes": [
+        {
+          "name": "RolesFileError",
+          "line": 46,
+          "docstring": true
+        }
+      ],
+      "windows_abs_path": [],
+      "container_abs_path": [],
+      "markers": [],
+      "long_lines": [],
+      "cjk_identifiers": [],
+      "bare_excepts": [],
+      "has_main_guard": true
+    },
+    {
+      "file": "tools/bootstrap.py",
+      "lines": 149,
+      "text_checks_skipped": false,
+      "module_docstring": true,
+      "parse_error": null,
+      "public_functions": [
+        {
+          "name": "clean_env",
+          "line": 29,
+          "docstring": true,
+          "missing_annotations": [],
+          "missing_return": false
+        },
+        {
+          "name": "venv_python",
+          "line": 43,
+          "docstring": false,
+          "missing_annotations": [],
+          "missing_return": false
+        },
+        {
+          "name": "run",
+          "line": 49,
+          "docstring": false,
+          "missing_annotations": [],
+          "missing_return": false
+        },
+        {
+          "name": "main",
+          "line": 61,
+          "docstring": false,
+          "missing_annotations": [
+            "argv"
+          ],
+          "missing_return": false
+        }
+      ],
+      "private_functions": 0,
+      "classes": [],
+      "windows_abs_path": [],
+      "container_abs_path": [],
+      "markers": [],
+      "long_lines": [],
+      "cjk_identifiers": [],
+      "bare_excepts": [],
+      "has_main_guard": true
+    },
+    {
+      "file": "tools/emotion_profile/badcase_pack.py",
+      "lines": 149,
+      "text_checks_skipped": false,
+      "module_docstring": true,
+      "parse_error": null,
+      "public_functions": [
+        {
+          "name": "read_jsonl",
+          "line": 38,
+          "docstring": true,
+          "missing_annotations": [],
+          "missing_return": false
+        },
+        {
+          "name": "user_turns",
+          "line": 51,
+          "docstring": true,
+          "missing_annotations": [],
+          "missing_return": false
+        },
+        {
+          "name": "render_entry",
+          "line": 57,
+          "docstring": true,
+          "missing_annotations": [],
+          "missing_return": false
+        },
+        {
+          "name": "main",
+          "line": 76,
+          "docstring": false,
+          "missing_annotations": [],
+          "missing_return": false
+        }
+      ],
+      "private_functions": 0,
+      "classes": [],
+      "windows_abs_path": [],
+      "container_abs_path": [],
+      "markers": [],
+      "long_lines": [],
+      "cjk_identifiers": [],
+      "bare_excepts": [],
+      "has_main_guard": true
+    },
+    {
+      "file": "tools/emotion_profile/make_prompt.py",
+      "lines": 82,
+      "text_checks_skipped": false,
+      "module_docstring": true,
+      "parse_error": null,
+      "public_functions": [
+        {
+          "name": "render",
+          "line": 34,
+          "docstring": true,
+          "missing_annotations": [],
+          "missing_return": false
+        },
+        {
+          "name": "main",
+          "line": 60,
+          "docstring": false,
+          "missing_annotations": [],
+          "missing_return": false
+        }
+      ],
+      "private_functions": 0,
+      "classes": [],
+      "windows_abs_path": [],
+      "container_abs_path": [],
+      "markers": [],
+      "long_lines": [],
+      "cjk_identifiers": [],
+      "bare_excepts": [],
+      "has_main_guard": true
+    },
+    {
+      "file": "tools/emotion_profile/make_val_input.py",
+      "lines": 94,
+      "text_checks_skipped": false,
+      "module_docstring": true,
+      "parse_error": null,
+      "public_functions": [
+        {
+          "name": "read_jsonl",
+          "line": 30,
+          "docstring": true,
+          "missing_annotations": [],
+          "missing_return": false
+        },
+        {
+          "name": "main",
+          "line": 43,
+          "docstring": false,
+          "missing_annotations": [],
+          "missing_return": false
+        }
+      ],
+      "private_functions": 0,
+      "classes": [],
+      "windows_abs_path": [],
+      "container_abs_path": [],
+      "markers": [],
+      "long_lines": [],
+      "cjk_identifiers": [],
+      "bare_excepts": [],
+      "has_main_guard": true
+    },
+    {
+      "file": "tools/emotion_profile/report.py",
+      "lines": 270,
+      "text_checks_skipped": false,
+      "module_docstring": true,
+      "parse_error": null,
+      "public_functions": [
+        {
+          "name": "read_jsonl",
+          "line": 33,
+          "docstring": true,
+          "missing_annotations": [],
+          "missing_return": false
+        },
+        {
+          "name": "load_emotions",
+          "line": 50,
+          "docstring": true,
+          "missing_annotations": [],
+          "missing_return": false
+        },
+        {
+          "name": "pct",
+          "line": 59,
+          "docstring": true,
+          "missing_annotations": [],
+          "missing_return": false
+        },
+        {
+          "name": "emotion_section",
+          "line": 64,
+          "docstring": true,
+          "missing_annotations": [],
+          "missing_return": false
+        },
+        {
+          "name": "profile_section",
+          "line": 119,
+          "docstring": true,
+          "missing_annotations": [],
+          "missing_return": false
+        },
+        {
+          "name": "length_section",
+          "line": 160,
+          "docstring": true,
+          "missing_annotations": [],
+          "missing_return": false
+        },
+        {
+          "name": "format_report",
+          "line": 178,
+          "docstring": true,
+          "missing_annotations": [],
+          "missing_return": false
+        },
+        {
+          "name": "main",
+          "line": 228,
+          "docstring": false,
+          "missing_annotations": [],
+          "missing_return": false
+        }
+      ],
+      "private_functions": 0,
+      "classes": [],
+      "windows_abs_path": [],
+      "container_abs_path": [],
+      "markers": [],
+      "long_lines": [
+        {
+          "line": 146,
+          "length": 127
+        },
+        {
+          "line": 215,
+          "length": 121
+        }
+      ],
+      "cjk_identifiers": [],
+      "bare_excepts": [],
+      "has_main_guard": true
+    },
+    {
+      "file": "tools/eval_loop.py",
+      "lines": 333,
+      "text_checks_skipped": false,
+      "module_docstring": true,
+      "parse_error": null,
+      "public_functions": [
+        {
+          "name": "read_jsonl",
+          "line": 73,
+          "docstring": false,
+          "missing_annotations": [],
+          "missing_return": true
+        },
+        {
+          "name": "write_jsonl",
+          "line": 81,
+          "docstring": false,
+          "missing_annotations": [
+            "rows"
+          ],
+          "missing_return": false
+        },
+        {
+          "name": "build_val_input",
+          "line": 91,
+          "docstring": true,
+          "missing_annotations": [],
+          "missing_return": false
+        },
+        {
+          "name": "write_reference_subset",
+          "line": 118,
+          "docstring": true,
+          "missing_annotations": [],
+          "missing_return": false
+        },
+        {
+          "name": "run_step",
+          "line": 147,
+          "docstring": false,
+          "missing_annotations": [
+            "cmd",
+            "env"
+          ],
+          "missing_return": false
+        },
+        {
+          "name": "score",
+          "line": 154,
+          "docstring": false,
+          "missing_annotations": [],
+          "missing_return": false
+        },
+        {
+          "name": "extract_row",
+          "line": 178,
+          "docstring": false,
+          "missing_annotations": [],
+          "missing_return": false
+        },
+        {
+          "name": "format_cell",
+          "line": 194,
+          "docstring": false,
+          "missing_annotations": [
+            "value"
+          ],
+          "missing_return": false
+        },
+        {
+          "name": "append_leaderboard",
+          "line": 202,
+          "docstring": false,
+          "missing_annotations": [],
+          "missing_return": false
+        },
+        {
+          "name": "build_parser",
+          "line": 211,
+          "docstring": false,
+          "missing_annotations": [],
+          "missing_return": false
+        },
+        {
+          "name": "main",
+          "line": 235,
+          "docstring": false,
+          "missing_annotations": [
+            "argv"
+          ],
+          "missing_return": false
+        }
+      ],
+      "private_functions": 0,
+      "classes": [],
+      "windows_abs_path": [],
+      "container_abs_path": [],
+      "markers": [],
+      "long_lines": [
+        {
+          "line": 218,
+          "length": 125
+        }
+      ],
+      "cjk_identifiers": [],
+      "bare_excepts": [],
+      "has_main_guard": true
+    },
+    {
+      "file": "tools/fetch_model.py",
+      "lines": 306,
+      "text_checks_skipped": false,
+      "module_docstring": true,
+      "parse_error": null,
+      "public_functions": [
+        {
+          "name": "human",
+          "line": 62,
+          "docstring": false,
+          "missing_annotations": [],
+          "missing_return": false
+        },
+        {
+          "name": "request",
+          "line": 75,
+          "docstring": false,
+          "missing_annotations": [],
+          "missing_return": true
+        },
+        {
+          "name": "list_files",
+          "line": 82,
+          "docstring": false,
+          "missing_annotations": [],
+          "missing_return": false
+        },
+        {
+          "name": "resolve_url",
+          "line": 97,
+          "docstring": false,
+          "missing_annotations": [],
+          "missing_return": false
+        },
+        {
+          "name": "remote_size",
+          "line": 101,
+          "docstring": true,
+          "missing_annotations": [],
+          "missing_return": false
+        },
+        {
+          "name": "wanted",
+          "line": 119,
+          "docstring": false,
+          "missing_annotations": [],
+          "missing_return": false
+        },
+        {
+          "name": "download_one",
+          "line": 125,
+          "docstring": false,
+          "missing_annotations": [],
+          "missing_return": false
+        },
+        {
+          "name": "main",
+          "line": 198,
+          "docstring": false,
+          "missing_annotations": [
+            "argv"
+          ],
+          "missing_return": false
+        }
+      ],
+      "private_functions": 0,
+      "classes": [],
+      "windows_abs_path": [
+        {
+          "line": 14,
+          "text": "python tools/fetch_model.py --repo Qwen/Qwen2.5-7B-Instruct --dest D:/models/qwen7b"
+        }
+      ],
+      "container_abs_path": [],
+      "markers": [],
+      "long_lines": [],
+      "cjk_identifiers": [],
+      "bare_excepts": [],
+      "has_main_guard": true
+    },
+    {
+      "file": "tools/gen_label_block.py",
+      "lines": 120,
+      "text_checks_skipped": false,
+      "module_docstring": true,
+      "parse_error": null,
+      "public_functions": [
+        {
+          "name": "load_label_space",
+          "line": 39,
+          "docstring": true,
+          "missing_annotations": [],
+          "missing_return": false
+        },
+        {
+          "name": "render_emotion",
+          "line": 57,
+          "docstring": true,
+          "missing_annotations": [],
+          "missing_return": false
+        },
+        {
+          "name": "render_profile",
+          "line": 67,
+          "docstring": true,
+          "missing_annotations": [],
+          "missing_return": false
+        },
+        {
+          "name": "main",
+          "line": 88,
+          "docstring": false,
+          "missing_annotations": [],
+          "missing_return": false
+        }
+      ],
+      "private_functions": 0,
+      "classes": [],
+      "windows_abs_path": [],
+      "container_abs_path": [],
+      "markers": [],
+      "long_lines": [],
+      "cjk_identifiers": [],
+      "bare_excepts": [],
+      "has_main_guard": true
+    },
+    {
+      "file": "tests/test_assign_role.py",
+      "lines": 154,
+      "text_checks_skipped": false,
+      "module_docstring": true,
+      "parse_error": null,
+      "public_functions": [
+        {
+          "name": "test_accepts_case_and_space_variants",
+          "line": 37,
+          "docstring": false,
+          "missing_annotations": [],
+          "missing_return": false
+        },
+        {
+          "name": "test_rejects_bare_five",
+          "line": 41,
+          "docstring": false,
+          "missing_annotations": [],
+          "missing_return": false
+        },
+        {
+          "name": "test_rejects_unknown",
+          "line": 46,
+          "docstring": false,
+          "missing_annotations": [],
+          "missing_return": false
+        },
+        {
+          "name": "test_lead_is_bold",
+          "line": 52,
+          "docstring": false,
+          "missing_annotations": [],
+          "missing_return": false
+        },
+        {
+          "name": "test_blank_is_unassigned",
+          "line": 56,
+          "docstring": false,
+          "missing_annotations": [],
+          "missing_return": false
+        },
+        {
+          "name": "test_plain_name_is_code_span",
+          "line": 60,
+          "docstring": false,
+          "missing_annotations": [],
+          "missing_return": false
+        },
+        {
+          "name": "test_rejects_prose",
+          "line": 65,
+          "docstring": false,
+          "missing_annotations": [],
+          "missing_return": false
+        },
+        {
+          "name": "test_rejects_wrong_column_count",
+          "line": 68,
+          "docstring": false,
+          "missing_annotations": [],
+          "missing_return": false
+        },
+        {
+          "name": "test_accepts_five_column_row",
+          "line": 71,
+          "docstring": false,
+          "missing_annotations": [],
+          "missing_return": false
+        },
+        {
+          "name": "test_changes_only_the_target_cell",
+          "line": 81,
+          "docstring": false,
+          "missing_annotations": [],
+          "missing_return": false
+        },
+        {
+          "name": "test_preserves_crlf",
+          "line": 90,
+          "docstring": false,
+          "missing_annotations": [],
+          "missing_return": false
+        },
+        {
+          "name": "test_distinguishes_5a_from_5b",
+          "line": 95,
+          "docstring": false,
+          "missing_annotations": [],
+          "missing_return": false
+        },
+        {
+          "name": "test_clear_restores_unassigned",
+          "line": 100,
+          "docstring": false,
+          "missing_annotations": [],
+          "missing_return": false
+        },
+        {
+          "name": "test_is_idempotent",
+          "line": 105,
+          "docstring": false,
+          "missing_annotations": [],
+          "missing_return": false
+        },
+        {
+          "name": "test_missing_line_raises",
+          "line": 110,
+          "docstring": false,
+          "missing_annotations": [],
+          "missing_return": false
+        },
+        {
+          "name": "test_table_missing_raises",
+          "line": 115,
+          "docstring": false,
+          "missing_annotations": [],
+          "missing_return": false
+        },
+        {
+          "name": "test_lists_every_row",
+          "line": 121,
+          "docstring": false,
+          "missing_annotations": [],
+          "missing_return": false
+        },
+        {
+          "name": "setUp",
+          "line": 137,
+          "docstring": false,
+          "missing_annotations": [],
+          "missing_return": false
+        },
+        {
+          "name": "test_has_six_lines_including_split_five",
+          "line": 142,
+          "docstring": false,
+          "missing_annotations": [],
+          "missing_return": false
+        },
+        {
+          "name": "test_every_line_is_either_owned_or_unassigned",
+          "line": 147,
+          "docstring": false,
+          "missing_annotations": [],
+          "missing_return": false
+        }
+      ],
+      "private_functions": 0,
+      "classes": [
+        {
+          "name": "NormalizeLineTest",
+          "line": 36,
+          "docstring": false
+        },
+        {
+          "name": "RenderOwnerTest",
+          "line": 51,
+          "docstring": false
+        },
+        {
+          "name": "SplitRowTest",
+          "line": 64,
+          "docstring": false
+        },
+        {
+          "name": "ApplyAssignmentTest",
+          "line": 80,
+          "docstring": false
+        },
+        {
+          "name": "DescribeTest",
+          "line": 120,
+          "docstring": false
+        },
+        {
+          "name": "RealRolesFileTest",
+          "line": 134,
+          "docstring": true
+        }
+      ],
+      "windows_abs_path": [],
+      "container_abs_path": [],
+      "markers": [],
+      "long_lines": [],
+      "cjk_identifiers": [],
+      "bare_excepts": [],
+      "has_main_guard": true
+    },
+    {
+      "file": "tests/test_eval_loop_refs.py",
+      "lines": 95,
+      "text_checks_skipped": false,
+      "module_docstring": true,
+      "parse_error": null,
+      "public_functions": [
+        {
+          "name": "write_lines",
+          "line": 22,
+          "docstring": false,
+          "missing_annotations": [],
+          "missing_return": false
+        },
+        {
+          "name": "setUp",
+          "line": 30,
+          "docstring": false,
+          "missing_annotations": [],
+          "missing_return": false
+        },
+        {
+          "name": "test_keeps_only_scoped_ids",
+          "line": 54,
+          "docstring": false,
+          "missing_annotations": [],
+          "missing_return": false
+        },
+        {
+          "name": "test_preserves_original_lines_verbatim",
+          "line": 60,
+          "docstring": false,
+          "missing_annotations": [],
+          "missing_return": false
+        },
+        {
+          "name": "test_raises_when_nothing_matches",
+          "line": 65,
+          "docstring": false,
+          "missing_annotations": [],
+          "missing_return": false
+        },
+        {
+          "name": "test_raises_when_scope_has_no_ids",
+          "line": 71,
+          "docstring": false,
+          "missing_annotations": [],
+          "missing_return": false
+        },
+        {
+          "name": "test_first_twenty_scope_matches_twenty_references",
+          "line": 81,
+          "docstring": false,
+          "missing_annotations": [],
+          "missing_return": false
+        }
+      ],
+      "private_functions": 0,
+      "classes": [
+        {
+          "name": "WriteReferenceSubsetTest",
+          "line": 29,
+          "docstring": false
+        },
+        {
+          "name": "RealDataTest",
+          "line": 78,
+          "docstring": true
+        }
+      ],
+      "windows_abs_path": [],
+      "container_abs_path": [],
+      "markers": [],
+      "long_lines": [
+        {
+          "line": 62,
+          "length": 121
+        }
+      ],
+      "cjk_identifiers": [],
+      "bare_excepts": [],
+      "has_main_guard": true
+    },
+    {
+      "file": "tests/test_fusion.py",
+      "lines": 353,
+      "text_checks_skipped": false,
+      "module_docstring": true,
+      "parse_error": null,
+      "public_functions": [
+        {
+          "name": "make_history",
+          "line": 29,
+          "docstring": true,
+          "missing_annotations": [],
+          "missing_return": false
+        },
+        {
+          "name": "make_sample",
+          "line": 43,
+          "docstring": false,
+          "missing_annotations": [
+            "**overrides"
+          ],
+          "missing_return": false
+        },
+        {
+          "name": "setUp",
+          "line": 57,
+          "docstring": false,
+          "missing_annotations": [],
+          "missing_return": false
+        },
+        {
+          "name": "write_prompt",
+          "line": 67,
+          "docstring": false,
+          "missing_annotations": [],
+          "missing_return": false
+        },
+        {
+          "name": "test_returns_system_then_user",
+          "line": 72,
+          "docstring": false,
+          "missing_annotations": [],
+          "missing_return": false
+        },
+        {
+          "name": "test_system_prompt_is_used_verbatim",
+          "line": 77,
+          "docstring": false,
+          "missing_annotations": [],
+          "missing_return": false
+        },
+        {
+          "name": "test_composes_from_prompt_files_when_not_given",
+          "line": 84,
+          "docstring": false,
+          "missing_annotations": [],
+          "missing_return": false
+        },
+        {
+          "name": "test_raises_unavailable_without_any_prompt",
+          "line": 95,
+          "docstring": false,
+          "missing_annotations": [],
+          "missing_return": false
+        },
+        {
+          "name": "test_blank_system_prompt_is_treated_as_missing",
+          "line": 99,
+          "docstring": false,
+          "missing_annotations": [],
+          "missing_return": false
+        },
+        {
+          "name": "test_disabled_by_env_flag",
+          "line": 103,
+          "docstring": false,
+          "missing_annotations": [],
+          "missing_return": false
+        },
+        {
+          "name": "test_user_content_matches_official_shape",
+          "line": 115,
+          "docstring": false,
+          "missing_annotations": [],
+          "missing_return": false
+        },
+        {
+          "name": "test_single_turn_truncation_keeps_head_and_tail",
+          "line": 125,
+          "docstring": false,
+          "missing_annotations": [],
+          "missing_return": false
+        },
+        {
+          "name": "test_short_text_untouched",
+          "line": 133,
+          "docstring": false,
+          "missing_annotations": [],
+          "missing_return": false
+        },
+        {
+          "name": "test_target_turn_survives_turn_limit",
+          "line": 136,
+          "docstring": false,
+          "missing_annotations": [],
+          "missing_return": false
+        },
+        {
+          "name": "test_target_turn_survives_character_budget",
+          "line": 144,
+          "docstring": false,
+          "missing_annotations": [],
+          "missing_return": false
+        },
+        {
+          "name": "test_budget_drops_earliest_first",
+          "line": 151,
+          "docstring": false,
+          "missing_annotations": [],
+          "missing_return": false
+        },
+        {
+          "name": "test_build_messages_keeps_target_turn_text",
+          "line": 161,
+          "docstring": false,
+          "missing_annotations": [],
+          "missing_return": false
+        },
+        {
+          "name": "test_turns_after_target_are_never_included",
+          "line": 170,
+          "docstring": false,
+          "missing_annotations": [],
+          "missing_return": false
+        },
+        {
+          "name": "test_normal_item_is_used",
+          "line": 186,
+          "docstring": false,
+          "missing_annotations": [],
+          "missing_return": false
+        },
+        {
+          "name": "test_self_retrieval_is_dropped",
+          "line": 192,
+          "docstring": false,
+          "missing_annotations": [],
+          "missing_return": false
+        },
+        {
+          "name": "test_val_retrieval_is_dropped",
+          "line": 199,
+          "docstring": false,
+          "missing_annotations": [],
+          "missing_return": false
+        },
+        {
+          "name": "test_item_without_text_is_dropped",
+          "line": 206,
+          "docstring": false,
+          "missing_annotations": [],
+          "missing_return": false
+        },
+        {
+          "name": "test_non_list_retrieved_is_tolerated",
+          "line": 214,
+          "docstring": false,
+          "missing_annotations": [],
+          "missing_return": false
+        },
+        {
+          "name": "test_empty_retrieval_produces_no_section",
+          "line": 218,
+          "docstring": false,
+          "missing_annotations": [],
+          "missing_return": false
+        },
+        {
+          "name": "test_clean_messages_pass",
+          "line": 224,
+          "docstring": false,
+          "missing_annotations": [],
+          "missing_return": false
+        },
+        {
+          "name": "test_detects_content_after_target_turn",
+          "line": 229,
+          "docstring": false,
+          "missing_annotations": [],
+          "missing_return": false
+        },
+        {
+          "name": "test_detects_missing_target_turn",
+          "line": 240,
+          "docstring": false,
+          "missing_annotations": [],
+          "missing_return": false
+        },
+        {
+          "name": "test_detects_bad_role_and_non_string_content",
+          "line": 249,
+          "docstring": false,
+          "missing_annotations": [],
+          "missing_return": false
+        },
+        {
+          "name": "test_empty_messages_reported",
+          "line": 257,
+          "docstring": false,
+          "missing_annotations": [],
+          "missing_return": false
+        },
+        {
+          "name": "test_reports_sane_numbers",
+          "line": 262,
+          "docstring": false,
+          "missing_annotations": [],
+          "missing_return": false
+        },
+        {
+          "name": "test_tolerates_broken_sample",
+          "line": 269,
+          "docstring": false,
+          "missing_annotations": [],
+          "missing_return": false
+        },
+        {
+          "name": "test_content_and_text_both_accepted",
+          "line": 276,
+          "docstring": false,
+          "missing_annotations": [],
+          "missing_return": false
+        },
+        {
+          "name": "test_role_defaults_to_user",
+          "line": 283,
+          "docstring": false,
+          "missing_annotations": [],
+          "missing_return": false
+        },
+        {
+          "name": "setUpClass",
+          "line": 298,
+          "docstring": false,
+          "missing_annotations": [],
+          "missing_return": false
+        },
+        {
+          "name": "setUp",
+          "line": 304,
+          "docstring": false,
+          "missing_annotations": [],
+          "missing_return": false
+        },
+        {
+          "name": "test_wiring_passes_its_system_prompt_into_fusion",
+          "line": 311,
+          "docstring": true,
+          "missing_annotations": [],
+          "missing_return": false
+        },
+        {
+          "name": "test_wiring_falls_back_when_fusion_unavailable",
+          "line": 328,
+          "docstring": true,
+          "missing_annotations": [],
+          "missing_return": false
+        },
+        {
+          "name": "test_accepts_system_prompt_detection",
+          "line": 343,
+          "docstring": false,
+          "missing_annotations": [],
+          "missing_return": false
+        },
+        {
+          "name": "legacy",
+          "line": 346,
+          "docstring": false,
+          "missing_annotations": [
+            "sample",
+            "retrieved"
+          ],
+          "missing_return": true
+        }
+      ],
+      "private_functions": 2,
+      "classes": [
+        {
+          "name": "FusionTestBase",
+          "line": 54,
+          "docstring": true
+        },
+        {
+          "name": "TestBuildMessages",
+          "line": 71,
+          "docstring": false
+        },
+        {
+          "name": "TestTruncation",
+          "line": 124,
+          "docstring": false
+        },
+        {
+          "name": "TestRetrievalFiltering",
+          "line": 180,
+          "docstring": false
+        },
+        {
+          "name": "TestLeakAssertion",
+          "line": 223,
+          "docstring": false
+        },
+        {
+          "name": "TestContextStats",
+          "line": 261,
+          "docstring": false
+        },
+        {
+          "name": "TestTurnHelpers",
+          "line": 275,
+          "docstring": false
+        },
+        {
+          "name": "TestWiringSeam",
+          "line": 289,
+          "docstring": true
+        }
+      ],
+      "windows_abs_path": [],
+      "container_abs_path": [],
+      "markers": [],
+      "long_lines": [],
+      "cjk_identifiers": [],
+      "bare_excepts": [],
+      "has_main_guard": true
+    },
+    {
+      "file": "tests/test_pipeline.py",
+      "lines": 382,
+      "text_checks_skipped": false,
+      "module_docstring": true,
+      "parse_error": null,
+      "public_functions": [
+        {
+          "name": "write_jsonl",
+          "line": 34,
+          "docstring": false,
+          "missing_annotations": [],
+          "missing_return": false
+        },
+        {
+          "name": "make_record",
+          "line": 42,
+          "docstring": true,
+          "missing_annotations": [
+            "**overrides"
+          ],
+          "missing_return": false
+        },
+        {
+          "name": "empty_target",
+          "line": 55,
+          "docstring": false,
+          "missing_annotations": [],
+          "missing_return": false
+        },
+        {
+          "name": "test_emotion_space_has_17_values",
+          "line": 65,
+          "docstring": false,
+          "missing_annotations": [],
+          "missing_return": false
+        },
+        {
+          "name": "test_profile_dimensions_are_three",
+          "line": 71,
+          "docstring": false,
+          "missing_annotations": [],
+          "missing_return": false
+        },
+        {
+          "name": "setUp",
+          "line": 79,
+          "docstring": false,
+          "missing_annotations": [],
+          "missing_return": false
+        },
+        {
+          "name": "tearDown",
+          "line": 83,
+          "docstring": false,
+          "missing_annotations": [],
+          "missing_return": false
+        },
+        {
+          "name": "test_official_prefixed_ids_pass_lenient",
+          "line": 86,
+          "docstring": true,
+          "missing_annotations": [],
+          "missing_return": false
+        },
+        {
+          "name": "test_local_train_val_ids_pass_lenient_but_fail_strict",
+          "line": 94,
+          "docstring": true,
+          "missing_annotations": [],
+          "missing_return": false
+        },
+        {
+          "name": "test_duplicate_id_is_caught",
+          "line": 102,
+          "docstring": false,
+          "missing_annotations": [],
+          "missing_return": false
+        },
+        {
+          "name": "test_field_typo_is_caught",
+          "line": 107,
+          "docstring": true,
+          "missing_annotations": [],
+          "missing_return": false
+        },
+        {
+          "name": "test_enum_and_pattern_violations_are_caught",
+          "line": 116,
+          "docstring": false,
+          "missing_annotations": [],
+          "missing_return": false
+        },
+        {
+          "name": "test_id_coverage_against_input_is_checked",
+          "line": 137,
+          "docstring": true,
+          "missing_annotations": [],
+          "missing_return": false
+        },
+        {
+          "name": "test_bad_json_line_reports_line_number",
+          "line": 147,
+          "docstring": false,
+          "missing_annotations": [],
+          "missing_return": false
+        },
+        {
+          "name": "test_turn_mismatch_dropped_by_default",
+          "line": 181,
+          "docstring": false,
+          "missing_annotations": [],
+          "missing_return": false
+        },
+        {
+          "name": "test_turn_mismatch_kept_when_asked",
+          "line": 188,
+          "docstring": false,
+          "missing_annotations": [],
+          "missing_return": false
+        },
+        {
+          "name": "test_sample_id_follows_official_naming",
+          "line": 195,
+          "docstring": true,
+          "missing_annotations": [],
+          "missing_return": false
+        },
+        {
+          "name": "test_short_repeat_is_not_a_leak",
+          "line": 201,
+          "docstring": true,
+          "missing_annotations": [],
+          "missing_return": false
+        },
+        {
+          "name": "test_long_verbatim_reuse_is_dropped_as_leak",
+          "line": 219,
+          "docstring": false,
+          "missing_annotations": [],
+          "missing_return": false
+        },
+        {
+          "name": "test_turn_content_accepts_both_content_and_text",
+          "line": 241,
+          "docstring": true,
+          "missing_annotations": [],
+          "missing_return": false
+        },
+        {
+          "name": "test_history_is_capped_at_target_turn",
+          "line": 248,
+          "docstring": true,
+          "missing_annotations": [],
+          "missing_return": false
+        },
+        {
+          "name": "test_missing_conversation_id_raises_with_context",
+          "line": 260,
+          "docstring": false,
+          "missing_annotations": [],
+          "missing_return": false
+        },
+        {
+          "name": "test_load_inference_samples_does_not_need_labels",
+          "line": 264,
+          "docstring": true,
+          "missing_annotations": [],
+          "missing_return": false
+        },
+        {
+          "name": "test_perfect_prediction_scores_one",
+          "line": 308,
+          "docstring": false,
+          "missing_annotations": [],
+          "missing_return": false
+        },
+        {
+          "name": "test_wrong_emotion_costs_accuracy_not_bleu",
+          "line": 316,
+          "docstring": true,
+          "missing_annotations": [],
+          "missing_return": false
+        },
+        {
+          "name": "test_empty_emotion_counts_as_failure",
+          "line": 324,
+          "docstring": true,
+          "missing_annotations": [],
+          "missing_return": false
+        },
+        {
+          "name": "test_missing_prediction_is_warned_and_zeroed",
+          "line": 332,
+          "docstring": false,
+          "missing_annotations": [],
+          "missing_return": false
+        },
+        {
+          "name": "test_profile_scoring_is_set_based",
+          "line": 339,
+          "docstring": true,
+          "missing_annotations": [],
+          "missing_return": false
+        },
+        {
+          "name": "test_out_of_vocabulary_profile_tag_is_dropped_to_empty",
+          "line": 348,
+          "docstring": true,
+          "missing_annotations": [],
+          "missing_return": false
+        },
+        {
+          "name": "test_memory_refs_reported_but_excluded_by_default",
+          "line": 361,
+          "docstring": true,
+          "missing_annotations": [],
+          "missing_return": false
+        },
+        {
+          "name": "test_char_tokenizer_is_default_and_unknown_is_rejected",
+          "line": 375,
+          "docstring": false,
+          "missing_annotations": [],
+          "missing_return": false
+        }
+      ],
+      "private_functions": 2,
+      "classes": [
+        {
+          "name": "LabelSpaceTest",
+          "line": 64,
+          "docstring": false
+        },
+        {
+          "name": "ValidatorTest",
+          "line": 78,
+          "docstring": false
+        },
+        {
+          "name": "DataProcessorTest",
+          "line": 160,
+          "docstring": true
+        },
+        {
+          "name": "EvaluateTest",
+          "line": 285,
+          "docstring": false
+        }
+      ],
+      "windows_abs_path": [],
+      "container_abs_path": [],
+      "markers": [],
+      "long_lines": [],
+      "cjk_identifiers": [],
+      "bare_excepts": [],
+      "has_main_guard": true
+    },
+    {
+      "file": "tests/test_wiring.py",
+      "lines": 194,
+      "text_checks_skipped": false,
+      "module_docstring": true,
+      "parse_error": null,
+      "public_functions": [
+        {
+          "name": "conversation_text",
+          "line": 33,
+          "docstring": false,
+          "missing_annotations": [],
+          "missing_return": false
+        },
+        {
+          "name": "assert_official",
+          "line": 49,
+          "docstring": false,
+          "missing_annotations": [],
+          "missing_return": false
+        },
+        {
+          "name": "test_rag_missing_falls_back",
+          "line": 55,
+          "docstring": false,
+          "missing_annotations": [],
+          "missing_return": false
+        },
+        {
+          "name": "test_fusion_raises_falls_back",
+          "line": 61,
+          "docstring": false,
+          "missing_annotations": [],
+          "missing_return": false
+        },
+        {
+          "name": "test_fusion_returns_garbage_falls_back",
+          "line": 68,
+          "docstring": false,
+          "missing_annotations": [],
+          "missing_return": false
+        },
+        {
+          "name": "test_valid_fusion_output_is_used",
+          "line": 75,
+          "docstring": false,
+          "missing_annotations": [],
+          "missing_return": false
+        },
+        {
+          "name": "test_fusion_receives_retrieved_list",
+          "line": 87,
+          "docstring": false,
+          "missing_annotations": [],
+          "missing_return": false
+        },
+        {
+          "name": "test_missing_module_returns_empty_list",
+          "line": 100,
+          "docstring": false,
+          "missing_annotations": [],
+          "missing_return": false
+        },
+        {
+          "name": "test_raising_module_returns_empty_list",
+          "line": 103,
+          "docstring": false,
+          "missing_annotations": [],
+          "missing_return": false
+        },
+        {
+          "name": "test_non_list_and_non_dict_are_filtered",
+          "line": 115,
+          "docstring": false,
+          "missing_annotations": [],
+          "missing_return": false
+        },
+        {
+          "name": "setUp",
+          "line": 135,
+          "docstring": false,
+          "missing_annotations": [],
+          "missing_return": false
+        },
+        {
+          "name": "write",
+          "line": 142,
+          "docstring": false,
+          "missing_annotations": [],
+          "missing_return": false
+        },
+        {
+          "name": "test_no_prompts_yields_official_only",
+          "line": 145,
+          "docstring": false,
+          "missing_annotations": [],
+          "missing_return": false
+        },
+        {
+          "name": "test_blocks_are_appended_in_order",
+          "line": 148,
+          "docstring": false,
+          "missing_annotations": [],
+          "missing_return": false
+        },
+        {
+          "name": "test_missing_block_is_skipped_silently",
+          "line": 155,
+          "docstring": false,
+          "missing_annotations": [],
+          "missing_return": false
+        },
+        {
+          "name": "test_empty_file_is_treated_as_missing",
+          "line": 161,
+          "docstring": false,
+          "missing_annotations": [],
+          "missing_return": false
+        },
+        {
+          "name": "test_txt_extension_is_accepted",
+          "line": 165,
+          "docstring": false,
+          "missing_annotations": [],
+          "missing_return": false
+        },
+        {
+          "name": "test_md_wins_over_txt",
+          "line": 169,
+          "docstring": false,
+          "missing_annotations": [],
+          "missing_return": false
+        },
+        {
+          "name": "test_official_copy_has_no_wiring_import",
+          "line": 180,
+          "docstring": false,
+          "missing_annotations": [],
+          "missing_return": false
+        },
+        {
+          "name": "test_deployed_copy_survives_missing_wiring",
+          "line": 186,
+          "docstring": true,
+          "missing_annotations": [],
+          "missing_return": false
+        },
+        {
+          "name": "boom",
+          "line": 62,
+          "docstring": false,
+          "missing_annotations": [
+            "sample",
+            "retrieved"
+          ],
+          "missing_return": true
+        },
+        {
+          "name": "good",
+          "line": 76,
+          "docstring": false,
+          "missing_annotations": [
+            "sample",
+            "retrieved"
+          ],
+          "missing_return": true
+        },
+        {
+          "name": "spy",
+          "line": 90,
+          "docstring": false,
+          "missing_annotations": [
+            "sample",
+            "retrieved"
+          ],
+          "missing_return": true
+        },
+        {
+          "name": "boom",
+          "line": 107,
+          "docstring": false,
+          "missing_annotations": [
+            "sample",
+            "k"
+          ],
+          "missing_return": true
+        }
+      ],
+      "private_functions": 1,
+      "classes": [
+        {
+          "name": "FallbackTests",
+          "line": 46,
+          "docstring": true
+        },
+        {
+          "name": "RetrieveTests",
+          "line": 99,
+          "docstring": false
+        },
+        {
+          "name": "PromptCompositionTests",
+          "line": 132,
+          "docstring": true
+        },
+        {
+          "name": "WiringDoesNotTouchGivenDataTests",
+          "line": 177,
+          "docstring": true
+        }
+      ],
+      "windows_abs_path": [],
+      "container_abs_path": [],
+      "markers": [],
+      "long_lines": [],
+      "cjk_identifiers": [],
+      "bare_excepts": [],
+      "has_main_guard": true
+    },
+    {
+      "file": "docs/reports/audit_code.py",
+      "lines": 371,
+      "text_checks_skipped": true,
+      "module_docstring": true,
+      "parse_error": null,
+      "public_functions": [
+        {
+          "name": "cjk_identifiers",
+          "line": 58,
+          "docstring": true,
+          "missing_annotations": [],
+          "missing_return": false
+        },
+        {
+          "name": "bare_excepts",
+          "line": 79,
+          "docstring": true,
+          "missing_annotations": [],
+          "missing_return": false
+        },
+        {
+          "name": "iter_python_files",
+          "line": 92,
+          "docstring": false,
+          "missing_annotations": [],
+          "missing_return": false
+        },
+        {
+          "name": "rel",
+          "line": 105,
+          "docstring": false,
+          "missing_annotations": [],
+          "missing_return": false
+        },
+        {
+          "name": "is_test_file",
+          "line": 112,
+          "docstring": true,
+          "missing_annotations": [],
+          "missing_return": false
+        },
+        {
+          "name": "is_conventional_test_symbol",
+          "line": 117,
+          "docstring": false,
+          "missing_annotations": [],
+          "missing_return": false
+        },
+        {
+          "name": "scan_file",
+          "line": 137,
+          "docstring": false,
+          "missing_annotations": [],
+          "missing_return": false
+        },
+        {
+          "name": "normalize",
+          "line": 203,
+          "docstring": false,
+          "missing_annotations": [],
+          "missing_return": false
+        },
+        {
+          "name": "find_duplicate_blocks",
+          "line": 210,
+          "docstring": true,
+          "missing_annotations": [],
+          "missing_return": false
+        },
+        {
+          "name": "summarize",
+          "line": 238,
+          "docstring": false,
+          "missing_annotations": [],
+          "missing_return": false
+        },
+        {
+          "name": "print_report",
+          "line": 315,
+          "docstring": false,
+          "missing_annotations": [],
+          "missing_return": false
+        },
+        {
+          "name": "main",
+          "line": 350,
+          "docstring": false,
+          "missing_annotations": [],
+          "missing_return": false
+        },
+        {
+          "name": "places",
+          "line": 239,
+          "docstring": false,
+          "missing_annotations": [
+            "predicate"
+          ],
+          "missing_return": false
+        },
+        {
+          "name": "show",
+          "line": 321,
+          "docstring": false,
+          "missing_annotations": [],
+          "missing_return": false
+        }
+      ],
+      "private_functions": 1,
+      "classes": [],
+      "windows_abs_path": [],
+      "container_abs_path": [],
+      "markers": [],
+      "long_lines": [],
+      "cjk_identifiers": [],
+      "bare_excepts": [],
+      "has_main_guard": true
+    },
+    {
+      "file": "docs/reports/pack_review.py",
+      "lines": 176,
+      "text_checks_skipped": false,
+      "module_docstring": true,
+      "parse_error": null,
+      "public_functions": [
+        {
+          "name": "sha256",
+          "line": 44,
+          "docstring": true,
+          "missing_annotations": [],
+          "missing_return": false
+        },
+        {
+          "name": "human",
+          "line": 53,
+          "docstring": false,
+          "missing_annotations": [],
+          "missing_return": false
+        },
+        {
+          "name": "collect",
+          "line": 62,
+          "docstring": true,
+          "missing_annotations": [],
+          "missing_return": false
+        },
+        {
+          "name": "copy_platform_log",
+          "line": 88,
+          "docstring": true,
+          "missing_annotations": [],
+          "missing_return": false
+        },
+        {
+          "name": "render_manifest",
+          "line": 104,
+          "docstring": false,
+          "missing_annotations": [],
+          "missing_return": false
+        },
+        {
+          "name": "main",
+          "line": 137,
+          "docstring": false,
+          "missing_annotations": [],
+          "missing_return": false
+        }
+      ],
+      "private_functions": 0,
+      "classes": [],
+      "windows_abs_path": [],
+      "container_abs_path": [],
+      "markers": [],
+      "long_lines": [],
+      "cjk_identifiers": [],
+      "bare_excepts": [],
+      "has_main_guard": true
+    }
+  ]
+}

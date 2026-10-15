@@ -129,7 +129,12 @@ python src\cli.py build
 
 ```powershell
 .venv\Scripts\python.exe -m unittest discover -s tests
-# 期望：Ran 74 tests ... OK
+# 期望：Ran 98 tests ... OK（数字随开发增长，关键是 OK）
+
+.venv\Scripts\python.exe docs\reports\audit_code.py
+# 代码规范性巡检：模块 docstring / 类型标注 / 写死路径 / 中文标识符 /
+# 裸 except / 重复代码块。只读不写，逐项输出证据（file:line）。
+# 完整结果落到 docs/reports/code-review.audit.json；结论见 docs/reports/code-review.md。
 ```
 
 **改动推理或融合逻辑后必须再跑一遍**，并在群里说明验证步骤。
