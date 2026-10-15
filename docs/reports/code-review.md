@@ -1,7 +1,11 @@
 # 代码规范性评审（问题清单，带行号）
 
-> 角色⑤B · 2026-10-15 · 对应 `docs/reports/README.md` 第 2 条（B 项，无前置依赖）
-> **基线**：`main` 上 `450956f`（角色②的四个新脚本已并入）时的代码树，27 个文件 / 6,562 行。
+> 角色⑤B · 2026-10-15 首版，2026-10-16 随 `9b54fae` 刷新 · 对应 `docs/reports/README.md` 第 2 条（B 项，无前置依赖）
+> **基线**：`main` 上 `9b54fae` 时的代码树，28 个文件 / 6,946 行。
+> 首版基线是 `450956f`（角色②的四个新脚本已并入，27 个文件 / 6,562 行）。`9b54fae` 修了跑分工具的
+> 一处真 bug——它此前默认跑的推理脚本是**官方原件**而不是我们要提交的那棵树，带接线层的提示词
+> 根本量不到（详见 `docs/reports/experiments.md`）。该提交给 `tools/eval_loop.py` 加了 5 个带文档
+> 字符串的公开函数，所以它在这一版里的覆盖率从 18% 升到 44%，**其余文件的数字未变**。
 > 行号与计数会随代码变动漂移，**重跑 `audit_code.py` 以当次输出为准**。
 
 本报告回答一个问题：**如果专家只翻我们的代码，他会挑出什么？**
@@ -13,7 +17,7 @@
 
 ## 一、这份报告是怎么来的（可复现）
 
-不靠肉眼看。跑一个脚本，它扫 27 个 Python 文件 / 6,562 行，逐项输出证据：
+不靠肉眼看。跑一个脚本，它扫 28 个 Python 文件 / 6,946 行，逐项输出证据：
 
 ```bash
 python docs/reports/audit_code.py
@@ -47,12 +51,12 @@ python docs/reports/audit_code.py
 | 2 | 1 | 50% | `tools/emotion_profile/make_prompt.py` |
 | 2 | 1 | 50% | `tools/emotion_profile/make_val_input.py` |
 | 6 | 3 | 50% | `docs/reports/pack_review.py` |
+| 16 | 9 | 44% | `tools/eval_loop.py` |
 | 15 | 9 | 40% | `src/evaluate.py` |
 | 6 | 4 | 33% | `src/cli.py` |
 | 6 | 4 | 33% | `src/validate_submission.py` |
 | 14 | 10 | 29% | `docs/reports/audit_code.py` |
 | 4 | 3 | 25% | `tools/bootstrap.py` |
-| 11 | 9 | 18% | `tools/eval_loop.py` |
 | 8 | 7 | 12% | `tools/fetch_model.py` |
 | 1 | 1 | 0% | `deploy/make_val_input.py` |
 | 19 | 18 | 5% | `deploy/participant/run_inference.py`（官方原件） |
@@ -77,9 +81,9 @@ src/evaluate.py:88 get_tokenizer   :116 add   :126 score   :174 add   :188 score
 src/evaluate.py:213 add   :224 score   :247 to_json   :431 cosine
 src/cli.py:168 cmd_eval   :233 cmd_validate   :250 build_parser   :301 main
 src/validate_submission.py:61 render   :75 ok   :78 render   :312 main
-tools/eval_loop.py:73 read_jsonl   :81 write_jsonl   :147 run_step   :154 score
-tools/eval_loop.py:178 extract_row   :194 format_cell   :202 append_leaderboard
-tools/eval_loop.py:211 build_parser   :235 main
+tools/eval_loop.py:110 read_jsonl   :118 write_jsonl   :267 run_step   :274 score
+tools/eval_loop.py:298 extract_row   :314 format_cell   :352 append_leaderboard
+tools/eval_loop.py:364 build_parser   :403 main
 tools/fetch_model.py:62 human   :75 request   :82 list_files   :97 resolve_url
 tools/fetch_model.py:119 wanted   :125 download_one   :198 main
 tools/bootstrap.py:43 venv_python   :49 run   :61 main
@@ -134,11 +138,11 @@ deploy/make_val_input.py:36 main
 ### F4 · 低 · 生产代码 8 处公开函数缺类型标注
 
 ```
-tools/eval_loop.py:73  read_jsonl      （缺返回类型）
-tools/eval_loop.py:81  write_jsonl(rows)
-tools/eval_loop.py:147 run_step(cmd, env)
-tools/eval_loop.py:194 format_cell(value)
-tools/eval_loop.py:235 main(argv)
+tools/eval_loop.py:110 read_jsonl      （缺返回类型）
+tools/eval_loop.py:118 write_jsonl(rows)
+tools/eval_loop.py:267 run_step(cmd, env)
+tools/eval_loop.py:314 format_cell(value)
+tools/eval_loop.py:403 main(argv)
 tools/fetch_model.py:75  request       （缺返回类型）
 tools/fetch_model.py:198 main(argv)
 tools/bootstrap.py:61  main(argv)
@@ -187,7 +191,7 @@ src/validate_submission.py:66  ValidationResult
 
 写进报告是为了让专家知道**这些项我们真查了**，而不是没查：
 
-- **模块 docstring：27/27，零例外。**
+- **模块 docstring：28/28，零例外。**
 - **中文标识符：0 处。** 中文只出现在注释与文档字符串里，符合仓库既定风格。
 - **写死的 Windows 绝对路径：0 处。** 唯一命中是 `tools/fetch_model.py:14` 的用法示例
   （`--dest D:/models/qwen7b`），那是文档，不是代码。
@@ -224,7 +228,7 @@ src/validate_submission.py:66  ValidationResult
 静态检查只能证明「有没有写」，不能证明「写得对不对」。以下**未覆盖**：
 
 - 逻辑正确性、边界条件、并发与性能
-- 测试是否真能抓住回归（98 个测试全绿，但测试本身的强度未经评估）
+- 测试是否真能抓住回归（114 个测试全绿，但测试本身的强度未经评估）
 - 命名是否达意、注释与代码是否一致
 - `docs/` 下的非 Python 文件（markdown 的数字一致性由 `docs/reports/pack_review.py` 另管）
 
