@@ -15,7 +15,7 @@
 | BERTScore | **未接入**：需要神经网络编码器，离线环境需预置本地模型 | 评估器返回 `{"computed": false}`，不输出假分数 |
 | memory_refs | 默认**不计入**画像主指标（官方口径待确认），可用 `--include-memory-refs` 单看 | `tools/eval_loop.py` |
 
-### ⚠️ 两个会读错数的地方
+### ⚠️ 三个会读错数的地方
 
 1. **部分样本实验（`--limit N`）的分母是全量 2,354**。
    缺预测的样本按 0 分计入，所以 `--limit 5` 跑出来的「情绪 Acc 0.0013」不是模型崩了，
@@ -23,6 +23,24 @@
    相同的那几行**。这一点已作为待办提给角色①（评测归属方），建议加一列「可比对口径」。
 2. **本地评测器不是官方评分器**。官方未公布各指标权重与延迟满分阈值，
    本文件的数字只能用于「同一份数据、同一套代码下 A 方案是否比 B 方案好」的判断。
+3. **E0 / E1 量的是哪一棵树**（2026-10-16 补记，`9b54fae`）。
+   `tools/eval_loop.py` 在 `9b54fae` 之前的默认推理脚本是 `GivenData/participant/run_inference.py`
+   —— 那是**官方原件，没有接线层**，读不到队友的 `prompts/` 与 `rag/`。所以 E0 与 E1 量到的都是
+   「官方提示词 + 3B 模型」，**不是**我们要提交的那棵树。主办方唯一执行的命令是
+   `bash /root/participant/start.sh TEST_FILE RESULT_DIR`（`GivenData/participant/README.md:80-86`），
+   跑的是容器里那份，即 `deploy/participant/`。
+
+   这对 E0 / E1 本身不算错——我们本来就需要一条裸基线——**错的是台账上看不出这件事**：
+   一行数字分不出「官方裸基线」还是「带队友提示词与 RAG 的那棵树」。`9b54fae` 的修法是：
+
+   - `--inference-script {wired|official|<路径>}`，默认 `wired`；要裸基线就显式写 `official`
+   - 台账加 `script` / `prompts` 两列，每行数字从此自带「量的是哪棵树」的证据
+   - 开跑前先问接线层自己「这一趟走了哪条路」，把答案写进日志（`probe_wiring()`）
+
+   两个连带的坑一并处理了：`deploy/participant/model/` 不存在（5.9 GB 不复制第二份），而两份
+   `inference_config.json` 都写 `"./model"` 且以**工具目录**为基准 —— 换脚本而不同时指定模型，
+   模型就会找不到；`deploy/participant/prompts/` 本地同样不存在（镜像里由 `deploy/build.sh` 现拷），
+   不显式指回仓库根的 `prompts/` 就会**静默**退化成官方提示词，量到的数不对应提交的那棵树。
 
 ## 一、实验环境
 
@@ -68,6 +86,8 @@ id 格式错、id 重复）。管道可信。
 .venv/Scripts/python.exe tools/eval_loop.py --tag smoke --limit 5 --backend transformers
 ```
 
+**量的树**：官方原件 `GivenData/participant/`（**无**接线层，读不到 `prompts/`）——见 §〇 第 3 条。
+
 **结果**（2026-10-15 23:28:49，`runs/eval-smoke/`）：
 
 | 指标 | 值 |
@@ -89,6 +109,9 @@ id 格式错、id 重复）。管道可信。
 ```bash
 .venv/Scripts/python.exe tools/eval_loop.py --tag baseline --backend transformers
 ```
+
+**量的树**：官方原件 `GivenData/participant/`（**无**接线层）——见 §〇 第 3 条。这是一条**裸基线**，
+不是带队友提示词与 RAG 的那棵树；后者要等 ②③④ 交付、并用默认的 `--inference-script wired` 另跑一次。
 
 **状态：运行中**（2026-10-15 启动）。预计约 2 小时（2,354 × 2.9 s）。
 结果将写入 `runs/leaderboard.tsv` 的 `baseline` 行与 `runs/eval-baseline/score.json`。
