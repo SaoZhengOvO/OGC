@@ -1,0 +1,19 @@
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+
+# 数据适配器的产物：逐样本展开后约 220 MB，不进版本库。
+# 用 `python src/cli.py build` 可以随时从 GivenData/ 重新生成。
+data/processed/
+
+# 复现产物的落点约定。数据质量报告（data/reports/*.json）体积很小，
+# 是"我们查到了什么"的留档证据，因此**不入本忽略规则**，应当提交。
+runs/
+
+# 编辑器 / 系统
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db

@@ -1,0 +1,67 @@
+{
+  "_comment": "由 src/label_space.py 导出，请勿手工编辑；改动请改 src/label_space.py。",
+  "emotions": [
+    "joy",
+    "gratitude",
+    "relaxed",
+    "care",
+    "pride",
+    "neutral",
+    "surprise",
+    "mixed",
+    "sadness",
+    "loneliness",
+    "anxiety",
+    "anger",
+    "fear",
+    "disgust",
+    "shame",
+    "helplessness"
+  ],
+  "profile_dimensions": [
+    "personality_traits",
+    "interests",
+    "style"
+  ],
+  "profile_values": {
+    "personality_traits": [
+      "extroverted",
+      "introverted",
+      "open",
+      "conservative",
+      "high_conscientiousness",
+      "casual",
+      "agreeable",
+      "assertive",
+      "emotionally_stable",
+      "sensitive"
+    ],
+    "interests": [
+      "study_exam",
+      "programming_technology",
+      "reading_writing",
+      "film_animation",
+      "music",
+      "games",
+      "sports_fitness",
+      "travel_outdoor",
+      "pets",
+      "social",
+      "career_development",
+      "art_design"
+    ],
+    "style": [
+      "brief",
+      "detailed",
+      "colloquial",
+      "formal",
+      "direct",
+      "indirect",
+      "humorous",
+      "rational",
+      "high_emotional_expression",
+      "low_emotional_expression",
+      "emoji_user"
+    ]
+  }
+}

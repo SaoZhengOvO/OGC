@@ -1,0 +1,19 @@
+{
+  "train": {
+    "raw_conversations": 8338,
+    "samples": 18651,
+    "quality_report": "data\\reports\\train_quality.json"
+  },
+  "val": {
+    "raw_conversations": 900,
+    "samples": 2354,
+    "quality_report": "data\\reports\\val_quality.json"
+  },
+  "train_subsets": {
+    "with_profile": 11817,
+    "without_profile": 6834
+  },
+  "test_inference_data": {
+    "samples": 3
+  }
+}
