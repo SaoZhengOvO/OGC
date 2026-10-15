@@ -110,6 +110,13 @@ python src\cli.py build
 .venv\Scripts\python.exe tools\eval_loop.py --tag baseline --backend transformers
 ```
 
+**默认跑的是哪份推理脚本**：`deploy/participant/run_inference.py` —— **我们要提交的那棵树**，
+带接线层，会读 `prompts/` 与 `rag/`。`GivenData/participant/` 那份是官方原件、**没有**接线层，
+只在做裸基线对照时用 `--inference-script official` 显式指定。依据是主办方唯一执行的命令
+`bash /root/participant/start.sh TEST_FILE RESULT_DIR`（`GivenData/participant/README.md:80-86`，
+「确保脚本位置无更改」）——跑的是容器里那份。跑分前工具还会 `probe_wiring()` 问接线层自己走了哪条路，
+把答案写进日志，并在台账的 `script` / `prompts` 两列留证。
+
 `tools/eval_loop.py` 一步做完四件事：
 
 1. 从 `val_samples.jsonl` 只取 `id/conversation_id/target_user_turn_id/history`
@@ -122,14 +129,15 @@ python src\cli.py build
 > 用系统 Python 跑会落到没有 torch 的解释器上，报「共享服务没起来、或 Python 版本没有对应轮子」。
 
 常用开关：`--backend openai_compatible --base-url http://<host>:8000/v1 --api-model <name>`
-（指向共享推理服务）、`--skip-inference --predictions runs/xxx.jsonl`（只打分不推理）、
+（指向共享推理服务）、`--inference-script {wired|official|<路径>}`（默认 `wired`：我们要提交的那棵树；
+`official` 是官方裸基线）、`--skip-inference --predictions runs/xxx.jsonl`（只打分不推理）、
 `--tokenizer jieba`、`--include-memory-refs`、`--limit/--offset`。
 
 ## 五、自测与规范检查
 
 ```powershell
 .venv\Scripts\python.exe -m unittest discover -s tests
-# 期望：Ran 98 tests ... OK（数字随开发增长，关键是 OK）
+# 期望：Ran 114 tests ... OK（数字随开发增长，关键是 OK）
 
 .venv\Scripts\python.exe docs\reports\audit_code.py
 # 代码规范性巡检：模块 docstring / 类型标注 / 写死路径 / 中文标识符 /

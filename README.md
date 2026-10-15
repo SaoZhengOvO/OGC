@@ -196,7 +196,7 @@ except Exception: messages = [官方原始的两条 messages]
 │   ├── eval_loop.py              评测循环：跑分 → 记 leaderboard
 │   ├── gen_label_block.py        从词表生成纯文本块，防止手抄出错
 │   └── assign_role.py            分工登记
-├── tests/                        98 个单元测试
+├── tests/                        114 个单元测试
 ├── data/processed/               展开后的样本（220 MB，可重建，已 gitignore）
 ├── data/reports/                 数据质量报告（体积小，是查证证据，**已提交**）
 ├── docs/
@@ -231,6 +231,8 @@ python tools/bootstrap.py
 # 4. 跑分：冒烟 5 条，全量 2354 条
 .venv\Scripts\python.exe src\cli.py eval --predictions runs\<你的产物>.jsonl
 .venv\Scripts\python.exe tools\eval_loop.py --tag <实验名>
+#   默认跑的是**我们要提交的那棵树**（deploy/participant/，带接线层，会读 prompts/ 与 rag/）；
+#   要一条官方裸基线做对照，加 --inference-script official
 
 # 5. 自测与规范检查
 .venv\Scripts\python.exe -m unittest discover -s tests    # 期望 OK
@@ -267,6 +269,7 @@ bash deploy/build.sh --tar        # 额外导出 deploy/dist/ogc-participant.tar
 | 官方默认双卡张量并行 | 平台算力市场**只有 RTX 4090 一种卡**，按 1 卡申请时 `--tensor-parallel-size 2` 起不来 | 默认改成 1，可用环境变量覆盖 |
 | `fetch_model.py` 漏下分片目录文件 | 两个分片字节数都对、`--check` 也通过，**但推理立刻报 `OSError: ... model.safetensors.index.json`** | 补上下载分片索引文件 |
 | 部分样本跑分口径 | 用 `--limit 20` 冒烟时，分母仍是完整 2354 条，指标永远显示约 0.001 | 真值同步收窄（`8a61e72`） |
+| 跑分工具量错了树 | `eval_loop.py` 原先默认跑 `GivenData/participant/` 那份**没有接线层**的官方原件，队友提示词根本量不到 | 默认改为 `deploy/participant/`，台账加 `script`/`prompts` 两列（`9b54fae`） |
 | pip 把解包临时目录建在工作目录 | 一次 `git add -A` 扫进 1.9 GB 的 torch wheel | `.gitignore` 挡住 + `bootstrap.py` 把 TEMP 指到系统临时目录 |
 
 ## 八、分工
