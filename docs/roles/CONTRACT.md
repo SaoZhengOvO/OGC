@@ -72,3 +72,34 @@ python src/cli.py eval --predictions runs/<你的产物>.jsonl
 - 汇报时必须写明：本轮产物路径、跑了多少条、对比的基线是什么
 
 **基线（务必先复现出来再谈优化）**：官方 `run_inference.py` 的原始提示词 + 选定基座模型，在 val 2,354 条上的成绩。任何改动都要和这条基线比。
+
+## 六、资产共享（谁需要传什么）
+
+**结论：除了模型权重，什么都不用传；而模型权重也不用互相传。**
+
+| 资产 | 体积 | 怎么获得 | 要不要互相传 |
+|---|---|---|---|
+| 训练集 / 验证集（`GivenData/训练-验证-数据集/`） | 66.4 MB + 5.8 MB | `git clone` 就有 | 不用 |
+| 展开后的样本（`data/processed/`，10 个文件） | 220.9 MB | `python src/cli.py build` 重建 | 不用（已 gitignore） |
+| 语料与索引（`rag/corpus/`、`rag/index/`） | 待 ④ 测 | ④ 的 `build.py` 从**训练集**重建 | 不用（已 gitignore） |
+| 提示词（`prompts/*.md`） | 几 KB | `git pull` | 不用，走 git |
+| 代码（`rag/*.py`、`src/`、`tools/`） | 几 KB | `git pull` | 不用，走 git |
+| 模型权重（Qwen2.5-3B-Instruct） | **5.9 GB** | `python tools/fetch_model.py` | 想省流量可以，但没必要 |
+
+**为什么不要互相传语料/索引**：语料只能来自训练集，而训练集人人都有；`build.py` 是确定性的，同一个 commit + 同一份数据，谁跑出来的索引都一样。互相传文件反而制造「我用的是 v2、你用的是 v1」这种**静默不一致**——分数对不上却查不出原因。**版本一致性靠 git commit 号，不靠传文件。**
+
+**如果实在想省那 5.9 GB**：把模型放到一台有公网的机器上起 vLLM / Ollama，别人用 `openai_compatible` 后端指过去：
+
+```bash
+export EVALUATION_BACKEND=openai_compatible
+export EVALUATION_BASE_URL=http://<那台机器>:8000/v1
+export EVALUATION_API_MODEL=<模型名>
+python tools/eval_loop.py --tag <实验名>
+```
+
+官方脚本原生支持这条路（`run_inference.py` 已内置这些环境变量），**不需要改一行代码**。
+
+**但有一个陷阱**：走共享服务跑出来的**延迟数字没有意义**（官方性能分是 4090 上单条端到端计时，走网络会含往返与排队），**准确率类指标不受影响**（情绪 Acc / 画像 Acc / BLEU-4 / ROUGE-L 都是纯文本比对，与算力在哪无关）。所以：
+
+- ②③④ 用共享服务迭代**准确率**——完全可以，还能省下各自下模型的 5.9 GB；
+- 做**性能验证**——必须用本机 GPU，或者直接上咪咕平台的 4090。
