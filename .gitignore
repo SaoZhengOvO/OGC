@@ -17,3 +17,11 @@ runs/
 .idea/
 .DS_Store
 Thumbs.db
+
+# 角色④（检索线）的构建产物：语料与索引体积大，且可由脚本重建。
+# 构建脚本本身（rag/corpus/*.py）必须提交。
+rag/corpus/corpus.jsonl
+rag/index/
+
+# 角色①（部署线）的离线打包产物：镜像 tar 包极大，不进版本库。
+deploy/dist/
