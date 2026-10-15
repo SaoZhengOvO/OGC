@@ -39,3 +39,6 @@ GivenData/participant/model-*/
 # 双保险：这里挡住，同时 tools/bootstrap.py 会把 TEMP/TMPDIR 指到系统临时目录。
 pip-*/
 /tmp*
+
+# torch 的 Inductor 编译器有时把缓存目录建在当前工作目录（如 torchinductor_<用户名>/）。
+torchinductor_*/

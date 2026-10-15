@@ -1,0 +1,36 @@
+# 行尾统一为 LF —— 这条是这个项目的**硬性正确性问题**，不是风格偏好。
+#
+# 理由：我们的交付物是跑在 Linux 容器里的镜像，组委会唯一会执行的命令是
+#   bash /root/participant/start.sh TEST_FILE RESULT_DIR
+# 如果 shell 脚本被 checkout 成 CRLF，bash 会在第一行就报
+#   /bin/bash^M: bad interpreter: No such file or directory
+# 或 `$'\r': command not found` —— 镜像直接跑不起来 = 零分，而且我们只有 5 次机会。
+# 所以仓库里所有文本一律 LF。
+* text=auto eol=lf
+
+# Windows 批处理必须是 CRLF，作为例外放行。
+*.bat text eol=crlf
+*.cmd text eol=crlf
+
+# 二进制：不要做任何行尾或编码转换。
+*.safetensors binary
+*.bin binary
+*.pt binary
+*.gguf binary
+*.tar binary
+*.gz binary
+*.zip binary
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.webp binary
+*.ico binary
+*.pdf binary
+*.docx binary
+*.xlsx binary
+*.pptx binary
+
+# 由 git 之外的工具生成、不需要 diff 的产物。
+runs/** -diff
+data/processed/** -diff
