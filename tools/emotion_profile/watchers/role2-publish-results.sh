@@ -103,6 +103,34 @@ body.append("> 只带角色② 的 `emotion_profile.md`，**没有**角色③ �
 body.append("> 这么跑是为了让情绪/画像的成绩**只归因于②**（控制变量）——")
 body.append("> 回复类指标要等带上 `response.md` 的全量跑才有意义，不要拿这里的数字当系统分。")
 body.append("")
+
+# ---- 预登记 vs 实测：报告的核心纪律是"先写预测、再看结果"，交付物应当自己回答 ----
+_FLOOR_PROFILE = 0.6283
+_FLOOR_EMOTION = 0.3190
+_PRED_PROFILE = 0.6283          # §19.4 预测：v3 全量画像 ≈ 打平下限，可能略低
+actual_profile = score["profile_accuracy_mean_3dim"]
+actual_emotion = score["emotion_accuracy"]
+body.append("## 一之二、预登记 vs 实测（写于跑之前）")
+body.append("")
+body.append("| 预登记 | 预测值 | 实测 | 判定 |")
+body.append("|---|---|---|---|")
+body.append(
+    f"| §19.4：v3 全量画像 **≈ 打平下限，可能略低** | ≈ {_PRED_PROFILE:.4f} | "
+    f"**{actual_profile:.4f}**（差 {actual_profile - _PRED_PROFILE:+.4f}） | "
+    f"{'✅ 预测成立' if abs(actual_profile - _PRED_PROFILE) <= 0.01 else '⚠️ 与预测不符，见下方说明'} |"
+)
+body.append(
+    f"| §19（判据 1）：情绪应 **> {_FLOOR_EMOTION:.4f}** | > {_FLOOR_EMOTION:.4f} | "
+    f"**{actual_emotion:.4f}**（差 {actual_emotion - _FLOOR_EMOTION:+.4f}） | "
+    f"{'✅ 高于下限' if actual_emotion > _FLOOR_EMOTION else '❌ 低于下限'}（显著性见第二节） |"
+)
+body.append("")
+body.append("> **判定口径**：画像那条只看\"是不是≈下限\"（±0.01 以内算中）；")
+body.append("> **是否\"守住门\"要看第二节的配对显著性**，不能只看点估计。")
+body.append("> 若预测被证伪，说明模型在 style 上的精确率**高于** 51.74%，画像还有空间 ——")
+body.append("> 那是一个有用的方向性结论，不是失败。")
+body.append("")
+
 body.append("## 二、相对零成本下限的配对显著性")
 body.append("")
 body.append("零成本下限：情绪一律 `anxiety`（0.3190）、画像三维一律留空（0.6283）。")
