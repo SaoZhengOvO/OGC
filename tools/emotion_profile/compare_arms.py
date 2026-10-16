@@ -88,11 +88,50 @@ def parse_arm(value: str) -> tuple[str, Path]:
     return name.strip(), path
 
 
+def paired_difference(hits_a: list[int], hits_b: list[int]) -> dict:
+    """同一批样本上的配对差值及其 95% 置信区间。
+
+    为什么必须用配对：两个臂跑的是**同一批样本**，所以只能看「谁对谁错翻转了多少条」。
+    非配对区间（sqrt(p(1-p)/n)）在 n=200、p=0.5 时是 ±6.9 个百分点，太粗；
+    配对之后只取决于翻转条数：b 条（A 错 B 对）与 c 条（A 对 B 错）。
+
+        差值 = (b - c) / n
+        SE   = sqrt(b + c - (b - c)^2 / n) / n
+        95% 区间 ≈ 差值 ± 1.96·SE
+
+    这个数直接决定「能不能下结论」：区间跨过 0 就不能说这一版更好。
+    """
+    n = len(hits_a)
+    if n == 0 or n != len(hits_b):
+        return {"n": 0, "diff": 0.0, "se": 0.0, "low": 0.0, "high": 0.0, "b": 0, "c": 0, "significant": False}
+    b = sum(1 for a, bb in zip(hits_a, hits_b) if a == 0 and bb == 1)
+    c = sum(1 for a, bb in zip(hits_a, hits_b) if a == 1 and bb == 0)
+    diff = (b - c) / n
+    variance = (b + c - (b - c) ** 2 / n) / (n * n)
+    se = variance ** 0.5 if variance > 0 else 0.0
+    low, high = diff - 1.96 * se, diff + 1.96 * se
+    return {
+        "n": n,
+        "diff": diff,
+        "se": se,
+        "low": low,
+        "high": high,
+        "b": b,
+        "c": c,
+        "significant": low > 0 or high < 0,
+    }
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description="多臂对比（读 per-sample 明细）")
     parser.add_argument("--arm", action="append", required=True, help="`名字=per_sample.jsonl`，可重复")
     parser.add_argument("--out", default=None, help="写入 Markdown（默认只打印）")
     parser.add_argument("--per-sample-diff", action="store_true", help="额外列出各臂与第一个臂的逐条差异")
+    parser.add_argument(
+        "--paired",
+        default=None,
+        help="给一个臂名作基准，额外输出各臂与它的配对差值 + 95%% 置信区间（判断差异是否比噪声大）",
+    )
     args = parser.parse_args(argv)
 
     arms = [parse_arm(value) for value in args.arm]
@@ -143,6 +182,45 @@ def main(argv: list[str] | None = None) -> int:
                 f"{stats['该空却填']} | {stats['该填却空']} | {stats['填错']} | {item['filled']} | "
                 f"{dict(item['labels'].most_common(6))} |"
             )
+
+    if args.paired:
+        base = args.paired.strip()
+        if base not in names:
+            raise SystemExit(f"--paired 给的基准臂 {base!r} 不在 --arm 里（可选：{names}）")
+        lines.append("")
+        lines.append(f"## 配对显著性（基准 = {base}）")
+        lines.append("")
+        lines.append(
+            "同一批样本的配对比较：只取决于翻转条数（b = 基准错/本臂对，c = 基准对/本臂错）。"
+            "区间跨过 0 就不能下结论。"
+        )
+        lines.append("")
+        lines.append("| 指标 | 臂 | 差值 | 95% 区间 | b / c | 是否显著 |")
+        lines.append("|---|---|---|---|---|---|")
+
+        def hit_of(name: str, kind: str, dim: str | None = None):
+            if kind == "emotion":
+                return [1 if data[name][i].get("emotion_hit") else 0 for i in common_ids]
+            return [
+                1
+                if profile(data[name][i], "profile_gold", dim) == profile(data[name][i], "profile_pred", dim)
+                else 0
+                for i in common_ids
+            ]
+
+        metrics = [("情绪 Acc", "emotion", None)] + [(dim, "profile", dim) for dim in DIMS]
+        for label, kind, dim in metrics:
+            base_hits = hit_of(base, kind, dim)
+            for name in names:
+                if name == base:
+                    continue
+                result = paired_difference(base_hits, hit_of(name, kind, dim))
+                mark = "✅ 显著" if result["significant"] else "✖ 不显著"
+                lines.append(
+                    f"| {label} | {name} | {result['diff']:+.4f} | "
+                    f"[{result['low']:+.4f}, {result['high']:+.4f}] | "
+                    f"{result['b']} / {result['c']} | {mark} |"
+                )
 
     if args.per_sample_diff and len(names) > 1:
         base = names[0]
