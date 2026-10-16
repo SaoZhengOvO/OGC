@@ -23,6 +23,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import math
 from collections import Counter
 from pathlib import Path
 
@@ -88,8 +89,25 @@ def parse_arm(value: str) -> tuple[str, Path]:
     return name.strip(), path
 
 
+def exact_mcnemar_p(b: int, c: int) -> float:
+    """精确 McNemar 检验的双侧 p 值。
+
+    为什么不用正态近似：b + c 很小的时候（n=20 上常见）近似完全不可靠。
+    精确版就是在 H0（翻转方向等概率）下算二项尾概率：
+
+        p = 2 · Σ_{k=0}^{min(b,c)} C(b+c, k) · 0.5^(b+c)   ，上限截到 1
+
+    b + c 超过 60 之后二项系数会变大但仍在 Python 大整数范围内，可以直接算。
+    """
+    n = b + c
+    if n == 0:
+        return 1.0
+    tail = sum(math.comb(n, k) for k in range(0, min(b, c) + 1))
+    return min(1.0, 2 * tail / (2 ** n))
+
+
 def paired_difference(hits_a: list[int], hits_b: list[int]) -> dict:
-    """同一批样本上的配对差值及其 95% 置信区间。
+    """同一批样本上的配对差值、精确 McNemar p 值及其 95% 置信区间。
 
     为什么必须用配对：两个臂跑的是**同一批样本**，所以只能看「谁对谁错翻转了多少条」。
     非配对区间（sqrt(p(1-p)/n)）在 n=200、p=0.5 时是 ±6.9 个百分点，太粗；
@@ -98,18 +116,23 @@ def paired_difference(hits_a: list[int], hits_b: list[int]) -> dict:
         差值 = (b - c) / n
         SE   = sqrt(b + c - (b - c)^2 / n) / n
         95% 区间 ≈ 差值 ± 1.96·SE
+        p    = 精确 McNemar（见 exact_mcnemar_p）
 
-    这个数直接决定「能不能下结论」：区间跨过 0 就不能说这一版更好。
+    这些数直接决定「能不能下结论」：区间跨过 0、或 p ≥ 0.05，就不能说这一版更好。
     """
     n = len(hits_a)
     if n == 0 or n != len(hits_b):
-        return {"n": 0, "diff": 0.0, "se": 0.0, "low": 0.0, "high": 0.0, "b": 0, "c": 0, "significant": False}
+        return {
+            "n": 0, "diff": 0.0, "se": 0.0, "low": 0.0, "high": 0.0,
+            "b": 0, "c": 0, "p": 1.0, "significant": False,
+        }
     b = sum(1 for a, bb in zip(hits_a, hits_b) if a == 0 and bb == 1)
     c = sum(1 for a, bb in zip(hits_a, hits_b) if a == 1 and bb == 0)
     diff = (b - c) / n
     variance = (b + c - (b - c) ** 2 / n) / (n * n)
     se = variance ** 0.5 if variance > 0 else 0.0
     low, high = diff - 1.96 * se, diff + 1.96 * se
+    p_value = exact_mcnemar_p(b, c)
     return {
         "n": n,
         "diff": diff,
@@ -118,7 +141,8 @@ def paired_difference(hits_a: list[int], hits_b: list[int]) -> dict:
         "high": high,
         "b": b,
         "c": c,
-        "significant": low > 0 or high < 0,
+        "p": p_value,
+        "significant": p_value < 0.05,
     }
 
 
@@ -192,11 +216,11 @@ def main(argv: list[str] | None = None) -> int:
         lines.append("")
         lines.append(
             "同一批样本的配对比较：只取决于翻转条数（b = 基准错/本臂对，c = 基准对/本臂错）。"
-            "区间跨过 0 就不能下结论。"
+            "p 是**精确 McNemar**（小样本下正态近似不可靠）；p ≥ 0.05 或区间跨过 0 就不能下结论。"
         )
         lines.append("")
-        lines.append("| 指标 | 臂 | 差值 | 95% 区间 | b / c | 是否显著 |")
-        lines.append("|---|---|---|---|---|---|")
+        lines.append("| 指标 | 臂 | 差值 | 95% 区间 | b / c | p（精确） | 是否显著 |")
+        lines.append("|---|---|---|---|---|---|---|")
 
         def hit_of(name: str, kind: str, dim: str | None = None):
             if kind == "emotion":
@@ -219,7 +243,7 @@ def main(argv: list[str] | None = None) -> int:
                 lines.append(
                     f"| {label} | {name} | {result['diff']:+.4f} | "
                     f"[{result['low']:+.4f}, {result['high']:+.4f}] | "
-                    f"{result['b']} / {result['c']} | {mark} |"
+                    f"{result['b']} / {result['c']} | {result['p']:.4f} | {mark} |"
                 )
 
     if args.per_sample_diff and len(names) > 1:
