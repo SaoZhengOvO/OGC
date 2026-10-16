@@ -63,16 +63,43 @@ ARMS=(
 # 参数必须是**分开的两个 token**（`--arm` 和 `名字=路径`）。
 # 注意不能用 "${ARMS[@]/#/--arm }" —— 那样每个元素会变成含空格的**单个**参数，
 # argparse 会把它当成一个值而不是两个。
+#
+# 另外：**只把存在的臂加进去**。
+# compare_arms 读不到文件会直接报错退出 —— 那会让"某一个臂失败"升级成
+# "九臂总表全丢"。这里改成跳过缺失的臂、并把它们记进日志与总表开头。
 ARM_ARGS=()
+MISSING=()
 for arm in "${ARMS[@]}"; do
-    ARM_ARGS+=(--arm "$arm")
+    path="${arm#*=}"
+    if [ -s "$path" ]; then
+        ARM_ARGS+=(--arm "$arm")
+    else
+        MISSING+=("${arm%%=*}")
+    fi
 done
+
+say "可对比的臂：$(( ${#ARM_ARGS[@]} / 2 )) 个；缺失：${MISSING[*]:-无}"
+
+{
+    echo "# 九臂并排总表"
+    echo
+    if [ "${#MISSING[@]}" -gt 0 ]; then
+        echo "> ⚠️ **以下臂的逐样本明细缺失，已从对比中排除**：${MISSING[*]}"
+        echo "> 缺失通常意味着该臂的守护跑失败或超时；请查 \`runs/.gpu-queue-watcher.log\`。"
+        echo
+    else
+        echo "> 九个臂全部就位。"
+        echo
+    fi
+} > runs/ALL-ARMS-COMPARISON.md
 
 # ① 九臂并排（配对基准 v3 隔离）
 python3 tools/emotion_profile/compare_arms.py \
     "${ARM_ARGS[@]}" \
     --paired "v3隔离" \
-    --out runs/ALL-ARMS-COMPARISON.md
+    --out runs/ALL-ARMS-COMPARISON.md.tmp
+cat runs/ALL-ARMS-COMPARISON.md.tmp >> runs/ALL-ARMS-COMPARISON.md
+rm -f runs/ALL-ARMS-COMPARISON.md.tmp
 
 # ② 格式健康度（解析失败率 + 长度 + 残留污染）
 {
