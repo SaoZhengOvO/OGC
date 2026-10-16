@@ -237,10 +237,33 @@ setsid nohup python3 tools/eval_loop.py --tag ... > runs/x.log 2>&1 < /dev/null 
 ## 7. 提交前检查
 
 ```bash
-python3 -m unittest discover -s tests        # 必须全绿（当前 114 条）
+python3 -m unittest discover -s tests        # 队里的测试，必须全绿（当前 114 条）
+python3 tools/emotion_profile/selftest.py    # 本线工具链自检，必须 12/12
 python3 tools/emotion_profile/make_prompt.py --check
 git status --short                            # 只应有本线文件；不要 git add -A
 ```
+
+`selftest.py` 检查的是**有确定答案的不变量**，不是"跑完不报错"：
+
+| 检查 | 当前值 |
+|---|---|
+| 定稿产物与模板一致 | 3034 字符 ✅ |
+| 等距 200 切片逐维偏差 < 0.01 | 0.0024 |
+| 前 20 条 style 留空率偏差 > 0.3（smoke 不代表全量的定量证据） | 0.3174 |
+| 预检：完美预测 = 1.0000 | ✅ |
+| 预检：零成本下限 ≈ 0.32 / 0.63 | 0.3200 / 0.6283 |
+| `compare_arms` 自比 → 全 0、全不显著 | ✅ |
+| 审计恰好 4 个方向反了的词 | 怕 / 烦 / 不敢 / 气 |
+| style 探针：无规则 ΔEMA > +0.01 | 最好 +0.0008 |
+| v3 与 v5a 关键词准确率相同 | 0.3356 |
+| v6 关键词准确率高于 v3 | 0.3356 → 0.4125 |
+
+**任何一次改动之后先跑它** —— 这一夜这些工具改了很多次，还改出过两个自己的 bug
+（审计对象用了近似词表、评估漏算兜底分支），有这条检查才敢继续改。
+
+> Windows 上跑要注意两点（已在脚本里处理）：
+> `subprocess` 必须显式 `encoding="utf-8"`（默认按 gbk 解中文输出会抛异常）；
+> 临时目录用 `runs/.selftest` 而不是系统 temp（受限沙箱下系统 temp 往往不可写）。
 
 只动 `prompts/emotion_profile.md` 与 `tools/emotion_profile/`；
 `docs/reports/` 归 ⑤B（本线只在里面新建自己那篇报告，不改别人的文件）。
