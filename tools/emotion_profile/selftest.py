@@ -427,11 +427,42 @@ def check_thresholds() -> list[tuple[str, bool, str]]:
         return [("判读表 5 个阈值与全量真值一致", True, "没有全量真值文件，跳过")]
     code, out = run([sys.executable, str(TOOLS / "verify_thresholds.py")])
     ok = code == 0 and "全部吻合" in out
-    return [(
-        "判读表 5 个阈值与全量真值一致",
-        ok,
-        "五个数独立重算全部吻合（差 < 5e-5）" if ok else out[-300:],
-    )]
+    return [
+        (
+            "判读表 5 个阈值与全量真值一致",
+            ok,
+            "五个数独立重算全部吻合（差 < 5e-5）" if ok else out[-300:],
+        ),
+        *check_verdict_assessor(),
+    ]
+
+
+def check_verdict_assessor() -> list[tuple[str, bool, str]]:
+    """裁决脚本必须能跑，且对"产物缺失"与"有产物"两种情况都给出正确答案。
+
+    它是把 §十九 判读表机械化的工具 —— **交付时的结论应当由它给出**，
+    而不是靠人手写叙述（手写容易在"差一点点"时被"基本达标"这类说法带偏）。
+    """
+    results: list[tuple[str, bool, str]] = []
+
+    # 未产出的 tag：必须以退出码 2 明确表示"还没跑"，而不是崩掉或假装有结果
+    code, out = run([sys.executable, str(TOOLS / "assess_verdict.py"), "--tag", "__no_such_tag__"])
+    results.append((
+        "assess_verdict：产物缺失时明确报告未产出",
+        code == 2 and "还没有完整的产物" in out,
+        "退出码 2 + 明确提示" if code == 2 else f"退出码 {code}，输出：{out[-150:]}",
+    ))
+
+    # 有产物的臂：必须打印出判据表与预登记核对
+    if (REPO_ROOT / "runs" / "eval-v3-smoke").is_dir():
+        code, out = run([sys.executable, str(TOOLS / "assess_verdict.py"), "--tag", "v3-smoke"])
+        ok = code == 0 and "按 §十九 判读表裁决" in out and "预登记预测" in out
+        results.append((
+            "assess_verdict：有产物时输出判据表",
+            ok,
+            "判据表 + 预登记核对都在" if ok else out[-200:],
+        ))
+    return results
 
 
 def main(argv: list[str] | None = None) -> int:
