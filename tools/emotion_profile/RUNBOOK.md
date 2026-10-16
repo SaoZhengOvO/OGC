@@ -190,6 +190,23 @@ setsid nohup python3 tools/eval_loop.py --tag ... > runs/x.log 2>&1 < /dev/null 
 > 最后一个才是"守住验收门"的最终证据：全量 2354 条的分辨力是 **±2.2 个百分点**，
 > 比切片（±7.6pp）强得多。**只有过了 `--paired` 那一关的差值才写进报告。**
 
+### 挂守护之前，先演练它的命令序列
+
+守护会在**关键时刻**（比如 1.6 小时的全量刚跑完）执行一串命令。如果那串命令有 bug，
+你会在最不该失败的时候失败。所以：**先把它的命令序列在真实数据上跑一遍**，
+只是把输出改到临时目录。
+
+本线做过的演练（`/tmp/watcher-test`，用已存在的 `runs/eval-v3-full/val_input.jsonl`）：
+
+```
+1) 内联 Python 造零成本下限        → 2354 条 ✅
+2) src/cli.py eval --per-sample-out → floor.samples.jsonl ✅
+3) compare_arms --paired（跟自己对）→ 全 0、全不显著（符合预期）✅
+4) report.py --json-out            → 情绪 Acc 0.3190（与全量下限一致）✅
+```
+
+演练本身也有产出：它证明了全量下限确实是 **0.3190**（情绪）/ **0.6283**（画像）。
+
 ---
 
 ## 7. 提交前检查
