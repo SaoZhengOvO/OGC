@@ -55,9 +55,9 @@ ARMS=(
     "v5a=runs/eval-v5a-slice200/samples.jsonl"
     "v6=runs/eval-v6-slice200/samples.jsonl"
     "v7=runs/eval-v7-slice200/samples.jsonl"
-    "集成v3+③旧=runs/eval-integ-slice200/samples.jsonl"
-    "集成v8+③旧=runs/eval-v8+p03-slice200/samples.jsonl"
-    "集成v3+③新=runs/eval-p03new-slice200/samples.jsonl"
+    "集成v3+③现行=runs/eval-integ-slice200/samples.jsonl"
+    "集成v8+③现行=runs/eval-v8+p03-slice200/samples.jsonl"
+    "集成v3+③旧=runs/eval-p03new-slice200/samples.jsonl"
 )
 
 # 参数必须是**分开的两个 token**（`--arm` 和 `名字=路径`）。
