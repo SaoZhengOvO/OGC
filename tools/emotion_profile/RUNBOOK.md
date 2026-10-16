@@ -157,6 +157,20 @@ python tools/emotion_profile/slice_representativeness.py
 python3 tools/eval_loop.py --tag baseline --inference-script official
 ```
 
+### ⚠️ 中断留下的部分结果**不能拿来算分**
+
+全量跑被打断时会留下 `submission.jsonl`（例如 `runs/eval-mi300x-v4-full` 有 207 行、
+`runs/eval-v3-full` 有 314 行的历史残留）。**不要对这些前缀算分**，两个原因：
+
+1. **前缀系统性偏易**（报告 §十六/§十七）：val 前 20 条的对话轮数少 44%、参考回复长 50%，
+   裸模型在前 20 条上 0.5000、在全量上只有 0.2464。前 200 条也一样偏离
+   （style 金标为空率 0.490 vs 全量 0.5174）。
+2. 评分脚本会按「预测 ∩ 真值」算 `n_comparable`，**它不会报错**，只会给你一个
+   基于偏易子集的、偏高的分数。
+
+**正确的做法**：重跑（`run_inference.py` 在开跑时会截断旧文件），或者用
+`--limit`/`--offset` 明确声明你评的是哪一段。
+
 ---
 
 ## 4. 出证据
