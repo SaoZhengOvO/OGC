@@ -30,6 +30,17 @@ PAIR=runs/p02-v8+p03
 mkdir -p "$PAIR"
 cp runs/p02-v8/emotion_profile.md "$PAIR/emotion_profile.md"
 cp prompts/response.md "$PAIR/response.md"
+
+# 组装后校验：**必须两个文件都在**。
+# 否则（例如源文件缺失导致 cp 失败）目录里会只剩一篇提示词，
+# 而这一臂会挂着 "v8+③" 的标签跑出"只有③"的结果 —— **静默错**，从分数上看不出来。
+for f in emotion_profile.md response.md; do
+    if [ ! -s "$PAIR/$f" ]; then
+        say "❌ $PAIR/$f 缺失或为空 —— 拒绝用不完整的提示词跑（否则会产出标签错误的垃圾结果）"
+        exit 1
+    fi
+done
+say "v8+③ 提示词目录已就位：$(ls -1 "$PAIR" | tr '\n' ' ')"
 say "v8+③ 提示词目录 $PAIR：$(ls -1 "$PAIR" | tr '\n' ' ')"
 
 say "开始 v8+③ 切片（200 条）"

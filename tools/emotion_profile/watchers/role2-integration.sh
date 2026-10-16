@@ -35,13 +35,20 @@ sleep 30
 # 组装集成提示词目录：只在 runs/ 下建，不动 prompts/
 INTEG=runs/p02+p03
 mkdir -p "$INTEG"
-cp prompts/emotion_profile.md "$INTEG/emotion_profile.md"
+cp runs/p02-only/emotion_profile.md "$INTEG/emotion_profile.md"
 if [ -f prompts/response.md ]; then
     cp prompts/response.md "$INTEG/response.md"
 else
     say "⚠️ prompts/response.md 不存在 —— ③ 还没交付或被删了，集成跑无意义，退出"
     exit 1
 fi
+# 组装后校验：两篇必须都在（缺一篇会产出"标签正确、内容错"的静默结果）
+for f in emotion_profile.md response.md; do
+    if [ ! -s "$INTEG/$f" ]; then
+        say "❌ $INTEG/$f 缺失或为空 —— 拒绝用不完整的提示词跑"
+        exit 1
+    fi
+done
 say "集成提示词目录 $INTEG：$(ls -1 "$INTEG" | tr '\n' ' ')"
 
 say "开始集成切片（200 条，②+③ 两篇提示词）"

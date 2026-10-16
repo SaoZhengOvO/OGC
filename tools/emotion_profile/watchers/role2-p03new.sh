@@ -39,6 +39,13 @@ if [ ! -f runs/p03-new/response.md ]; then
     exit 1
 fi
 cp runs/p03-new/response.md "$PAIR/response.md"
+# 组装后校验：两篇必须都在（缺一篇 → 标签正确、内容错的静默结果）
+for f in emotion_profile.md response.md; do
+    if [ ! -s "$PAIR/$f" ]; then
+        say "❌ $PAIR/$f 缺失或为空 —— 拒绝用不完整的提示词跑"
+        exit 1
+    fi
+done
 say "③新版参照目录 $PAIR：$(ls -1 "$PAIR" | tr '\n' ' ')"
 say "  ③新版 response.md sha256: $(sha256sum runs/p03-new/response.md | cut -c1-16)"
 

@@ -51,6 +51,15 @@ PAIR=runs/p02-v3+p03new-full
 mkdir -p "$PAIR"
 cp runs/p02-only/emotion_profile.md "$PAIR/emotion_profile.md"
 cp runs/p03-new/response.md "$PAIR/response.md"
+# 组装后校验：两篇必须都在。
+# 这一臂要占 1.6 小时的卡，如果因为源文件缺失而只带了一篇提示词，
+# 那就是"花 1.6 小时跑出一个标签错误的数字" —— 必须先校验再开跑。
+for f in emotion_profile.md response.md; do
+    if [ ! -s "$PAIR/$f" ]; then
+        say "❌ $PAIR/$f 缺失或为空 —— 拒绝起跑（否则 1.6 小时的结果标签是错的）"
+        exit 1
+    fi
+done
 say "集成全量提示词目录：$(ls -1 "$PAIR" | tr '\n' ' ')"
 say "  ② emotion_profile.md sha: $(sha256sum "$PAIR/emotion_profile.md" | cut -c1-16)"
 say "  ③ response.md        sha: $(sha256sum "$PAIR/response.md" | cut -c1-16)"
