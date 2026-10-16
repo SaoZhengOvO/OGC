@@ -203,8 +203,16 @@ setsid nohup python3 tools/eval_loop.py --tag ... > runs/x.log 2>&1 < /dev/null 
 | `role2-slice-v5a.sh` | 同上 | 跑 v5a-slice200，出 `runs/SLICE-COMPARISON-v5a.md` |
 | `role2-postprocess.sh` | v3 全量跑完 | 出 `samples/report/badcase` |
 | `role2-full-compare.sh` | v3 全量跑完 | 造零成本下限 → **配对显著性对比** → `runs/FULL-COMPARISON.md` |
+| `role2-publish-results.sh` | 全量对比就绪 | 把数字写成**仓库内**的 `docs/reports/role2-full-val-results.md` |
 
-> 最后一个才是"守住验收门"的最终证据：全量 2354 条的分辨力是 **±2.2 个百分点**，
+脚本源码在 `tools/emotion_profile/watchers/`（可评审、可复现），
+部署位置是 `/mnt/workspace/.team-ssh/`（共享 NAS，不依赖任何人的笔记本）。
+改完源码记得重新 `put` 到 NAS 再启动。
+
+> 最后一个解决了「`runs/` 被 gitignore，数字进不了版本库」的缺口：
+> 目标是「交付全量确认数字」，就必须有**可提交的文件**承载它。
+
+> `role2-full-compare.sh` 是"守住验收门"的最终证据：全量 2354 条的分辨力是 **±2.2 个百分点**，
 > 比切片（±7.6pp）强得多。**只有过了 `--paired` 那一关的差值才写进报告。**
 
 ### 挂守护之前，先演练它的命令序列

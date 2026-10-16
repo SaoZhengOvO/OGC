@@ -1,0 +1,43 @@
+#!/bin/bash
+# ② zjdhhds 的排队器：等卡上空出来（队长的 SFT 结束）再自动跑全量 v3。
+#
+# 为什么要有它：队的规矩是「同时最多 2 个 GPU 任务，超了排队」。
+# 我先前抢跑了一个全量，按规矩撤掉，改成排队；这样不用人盯着，卡一空就自动开始。
+cd /mnt/workspace/OGC || exit 1
+
+LOG=runs/.gpu-queue-watcher.log
+say() { echo "[$(date '+%m-%d %H:%M:%S')] $*" | tee -a "$LOG"; }
+
+say "排队器启动：等 train_sft.py 结束"
+
+# 等 SFT 结束（每 60 秒看一眼）
+while pgrep -f "train_sft.py" >/dev/null 2>&1; do
+    sleep 60
+done
+say "SFT 已结束"
+
+# 再等一会儿，确认卡上别的评测也退出（不硬挤）
+sleep 45
+RUNNING=$(pgrep -f "run_inference.py" | wc -l)
+say "当前 run_inference 进程数: $RUNNING"
+
+# 起全量（setsid + nohup：断开 SSH 也不受影响）
+setsid nohup python3 tools/eval_loop.py \
+    --tag v3-full \
+    --inference-script wired \
+    --prompt-dir /mnt/workspace/OGC/runs/p02-only \
+    > runs/v3-full.log 2>&1 < /dev/null &
+PID=$!
+say "已启动 v3-full，PID=$PID"
+
+# 登记 lock
+cat > runs/.gpu-lock.d/role2-v3-full.lock <<EOF
+状态: 占用
+谁: ② zjdhhds
+跑什么: tools/eval_loop.py --tag v3-full（全量 2354 条，只带 emotion_profile）
+起: $(date '+%m-%d %H:%M')
+止: 预计 1.5-2 小时（独占时）
+显存: 3B fp16 约 8-10 GB
+PID: $PID
+EOF
+say "lock 已写入 runs/.gpu-lock.d/role2-v3-full.lock"
