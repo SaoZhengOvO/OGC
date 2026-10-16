@@ -1470,7 +1470,8 @@ v7 走的就是这条路：给 relaxed / mixed / shame / pride 各补一条通�
 
 ### 20.2 从真实措辞里抄出规则（不是编的）
 
-我把 4 个最大的不可达类各抽 6 条原文看（脚本 `_local/show_unreachable.py`）：
+我把 4 个最大的不可达类各抽 6 条原文看
+（脚本 `tools/emotion_profile/show_class_examples.py --emotion relaxed,mixed --only-no-trigger`）：
 
 | 类 | 反复出现的说法 |
 |---|---|
