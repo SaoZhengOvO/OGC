@@ -75,3 +75,21 @@ python3 tools/emotion_profile/selftest.py 2>&1 | tail -2
 echo
 echo "=== ⑦ 旗标（集成全量是否被批准）==="
 [ -f runs/.go-integrated-full ] && echo "  ⚠️ 已批准，队长 touch 过" || echo "  ⏸ 未批准（不占卡）"
+
+echo
+echo "=== ⑧ 每个守护等的文件现在是否已存在（存在 = 会立刻触发）==="
+echo "  为什么查：守护等的是"产物"，但**残留的旧产物**也满足条件 ——"
+echo "  那会让它在本次跑还没产出任何东西时就触发，拿半截结果算分，而且不报错。"
+premature=0
+for f in /mnt/workspace/.team-ssh/role2-*.sh; do
+    target=$(grep -oE '\[\s*-f\s+[^] ]+\s*\]' "$f" 2>/dev/null | head -1 | sed 's/\[\s*-f\s*//; s/\s*\]//')
+    case "$target" in
+        ''|*'$'*|*'<路径>'*) continue ;;
+    esac
+    if [ -f "$target" ]; then
+        printf '  ⚠️ %-32s 等的 %s **已存在** → 会立刻触发\n' "$(basename "$f")" "$target"
+        premature=$((premature + 1))
+    fi
+done
+[ "$premature" -eq 0 ] && echo "  ✅ 没有任何守护的等待目标已存在（都会等今晚的新产物）"
+
