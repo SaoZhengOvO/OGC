@@ -185,6 +185,10 @@ setsid nohup python3 tools/eval_loop.py --tag ... > runs/x.log 2>&1 < /dev/null 
 | `role2-slice-report.sh` | v4-slice200 出分 | 出 `runs/SLICE-COMPARISON.md` |
 | `role2-slice-v5a.sh` | 同上 | 跑 v5a-slice200，出 `runs/SLICE-COMPARISON-v5a.md` |
 | `role2-postprocess.sh` | v3 全量跑完 | 出 `samples/report/badcase` |
+| `role2-full-compare.sh` | v3 全量跑完 | 造零成本下限 → **配对显著性对比** → `runs/FULL-COMPARISON.md` |
+
+> 最后一个才是"守住验收门"的最终证据：全量 2354 条的分辨力是 **±2.2 个百分点**，
+> 比切片（±7.6pp）强得多。**只有过了 `--paired` 那一关的差值才写进报告。**
 
 ---
 
