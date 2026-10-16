@@ -36,6 +36,27 @@ if [ "$started" -eq 0 ]; then
     say "    但请事后确认排队器是否正常，这会影响『当时几个任务』的记载"
 fi
 
+# === 并发闸门：确认卡位上真的只有「我的 v3 全量」这一个任务 ===
+# 为什么需要：队长的 SFT 一结束，可能**别人也会起评测**。此时我这边
+# queue（v3 全量）+ slice（本脚本）= 2 个任务，若再有第三方就是 3 个 ——
+# 违反 runs/GPU-RULES.md 的「同时最多 2 个」。而这类越界**不会报错**，
+# 只会让所有人的跑都变慢、并且事后说不清当时到底几个任务。
+# 判据：数 run_inference.py 进程数。我自己那一个算 1，超过 1 说明还有别人在跑。
+for _ in $(seq 1 60); do
+    RUNNING=$(pgrep -f "run_inference.py" | wc -l)
+    if [ "$RUNNING" -le 1 ]; then
+        say "并发闸门通过：当前 run_inference 进程数 = $RUNNING（只有我自己的）"
+        break
+    fi
+    say "并发闸门等待：run_inference 进程数 = $RUNNING（>1，说明有第三方在跑），等 60 秒再看"
+    sleep 60
+done
+FINAL=$(pgrep -f "run_inference.py" | wc -l)
+if [ "$FINAL" -gt 1 ]; then
+    say "⚠️ 等了一小时仍是 $FINAL 个 run_inference —— 仍然起切片，但**这会让并发超过 2**，"
+    say "    请事后核对 runs/GPU-RULES.md 的规矩；已如实记录在这里。"
+fi
+
 cat > runs/.gpu-lock.d/role2-slice.lock <<EOF
 状态: 占用
 谁: ② zjdhhds
@@ -49,7 +70,17 @@ EOF
 for tag_dir in "v3-slice200:runs/p02-only" "v4-slice200:runs/p02-v4"; do
     tag="${tag_dir%%:*}"
     pdir="/mnt/workspace/OGC/${tag_dir##*:}"
-    say "开始 $tag（提示词 $pdir）"
+    # 每个臂起跑前复查一次并发（防止中途有第三方加入）
+    HERE=$(pgrep -f "run_inference.py" | wc -l)
+    if [ "$HERE" -gt 1 ]; then
+        say "⚠️ 起 $tag 前 run_inference 进程数 = $HERE（>1）—— 再等一轮"
+        for _ in $(seq 1 30); do
+            HERE=$(pgrep -f "run_inference.py" | wc -l)
+            [ "$HERE" -le 1 ] && break
+            sleep 60
+        done
+    fi
+    say "开始 $tag（提示词 $pdir），起跑时 run_inference 进程数 = $(pgrep -f 'run_inference.py' | wc -l)"
     python3 tools/eval_loop.py \
         --tag "$tag" \
         --source /mnt/workspace/OGC/runs/slice200/val_samples.jsonl \
