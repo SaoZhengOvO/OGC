@@ -146,7 +146,7 @@ python _local/keepalive.py --interval 480     # 或带 --log 指定日志
 | 内容 | 位置 | 进仓库吗 |
 |---|---|---|
 | 机制报告（87.7KB，含更正索引/导读/判读表/预登记） | `docs/reports/role2-emotion-profile-v1-v3.md` | ✅ |
-| 台账（§1–§30） | `tools/emotion_profile/LOG.md` | ✅ |
+| 台账（§1–§31） | `tools/emotion_profile/LOG.md` | ✅ |
 | Runbook（守护表 14/14、工具表 19/19） | `tools/emotion_profile/RUNBOOK.md` | ✅ |
 | **全量数字（自动生成）** | `docs/reports/role2-full-val-results.md` | ✅（跑完才有） |
 | 逐样本明细 / badcase | `runs/eval-v3-full/` | ❌ gitignore |
@@ -166,13 +166,31 @@ python _local/keepalive.py --interval 480     # 或带 --log 指定日志
 3. **恢复会话后，先跑这三条**：
 
 ```bash
-bash /mnt/workspace/.team-ssh/role2-preflight.sh        # 8 项：链还在不在、卡位对不对
-ls /mnt/workspace/OGC/runs/eval-*/score.json \
-   /mnt/workspace/OGC/runs/eval-v3-full/performance_report.json \
-   /mnt/workspace/OGC/runs/FULL-COMPARISON.md \
-   /mnt/workspace/OGC/runs/ALL-ARMS-COMPARISON.md 2>/dev/null   # 产物到哪一步
-python3 tools/emotion_profile/assess_verdict.py         # 机械裁决（有产物才有输出）
+bash /mnt/workspace/.team-ssh/role2-preflight.sh        # 9 项：链还在不在、卡位对不对
+python3 tools/emotion_profile/assess_verdict.py         # 机械裁决（没产物时退出码 2 + 明确提示）
 ```
+
+**查"产物到哪一步"要用下面这条**（**不要用 `runs/eval-*/score.json` 通配** ——
+那会把早就存在的 `eval-*-smoke/score.json` 也列出来，让人误以为有产物）：
+
+```bash
+for f in runs/eval-v3-slice200/score.json runs/eval-v4-slice200/score.json \
+         runs/eval-v5a-slice200/score.json runs/eval-v6-slice200/score.json \
+         runs/eval-v7-slice200/score.json runs/eval-integ-slice200/score.json \
+         runs/eval-v8+p03-slice200/score.json runs/eval-p03new-slice200/score.json \
+         runs/eval-v3-full/performance_report.json \
+         runs/FULL-COMPARISON.md runs/ALL-ARMS-COMPARISON.md \
+         docs/reports/role2-full-val-results.md; do
+    [ -f "$f" ] && echo "✅ $f" || echo "⏳ $f"
+done
+```
+
+> 或者**直接看 `runs/CHAIN-STATUS.md`** —— 那份看板每 5 分钟自动重写，
+> 12 个产物逐项标 ✅/⏳，**不用跑命令**。
+
+> ⚠️ 上面这几条是**第 233 轮演练恢复流程时改的**：
+> 演练发现原命令的 `eval-*` 通配会把 5 个旧的 smoke 产物列出来（看起来像"有产物"），
+> 而且顺手发现同一处的"8 项"已是 9 项。**演练恢复流程本身就有价值。**
 
 4. **然后照"收尾清单"逐处更新报告与台账**，
    并把 `docs/reports/role2-full-val-results.md` **显式 `git add` 后提交**。
