@@ -441,7 +441,19 @@ cat runs/leaderboard.tsv
 # 4) 全量（2354 条，约 1.5–2 小时独占卡）
 python3 tools/eval_loop.py --tag v3-full \
     --inference-script wired --prompt-dir /mnt/workspace/OGC/runs/p02-only
+
+# 5) 复现后自验 —— 这两条命令是"可复用"的验收标准
+python3 tools/emotion_profile/selftest.py          # 25 项不变量（含判读表 5 个阈值的独立复算）
+bash tools/emotion_profile/preflight_chain.sh      # 8 项起飞前检查（含"等待目标是否已存在"）
 ```
+
+> **上面 5 步命令都实测过**：
+> 步骤 0 幂等（`prompts/emotion_profile.md` 与 `runs/p02-only/emotion_profile.md` 哈希一致）；
+> 步骤 3 的 `runs/leaderboard.tsv` 确实存在；
+> 步骤 1/2 用到的 `--inference-script official|wired` 在 `tools/eval_loop.py:74` 的
+> `SCRIPT_PRESETS` 里分别指向 `GivenData/participant/run_inference.py` 与
+> `deploy/participant/run_inference.py` —— 与命令的假设一致。
+> 步骤 4 需要独占卡，**未在写本报告时执行**（这正是全量数字还空着的原因）。
 
 ---
 
