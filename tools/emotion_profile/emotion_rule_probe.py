@@ -28,23 +28,27 @@ from pathlib import Path
 REPO_ROOT = Path(__file__).resolve().parents[2]
 PROCESSED = REPO_ROOT / "data" / "processed"
 
-#: 按顺序匹配，先命中先算 —— 顺序本身就是「优先级」的体现，
-#: 与 prompts/emotion_profile.md 的第一步触发词表一致。
+#: 第一步的触发词表 —— **必须与 prompts/emotion_profile.md 逐字一致**，
+#: 否则审计结论就不可信（这一点是踩过坑的：曾经凭印象写成"踏实"，
+#: 而提示词里其实是"踏实多了"，两者精确率差很多）。
+#:
+#: 顺序即优先级，先命中先算。mixed / neutral 没有词表（它们是定义式的），
+#: 所以不在这里 —— 这也正是 §15.2 的发现。
 RULES: list[tuple[str, tuple[str, ...]]] = [
-    ("anger", ("烦", "烦躁", "气", "凭什么", "受不了", "摔键盘", "愤怒", "火大")),
-    ("fear", ("怕", "害怕", "恐惧", "不敢", "吓")),
-    ("helplessness", ("无力", "没办法", "改变不了", "只能忍着", "看不到头", "无能为力")),
-    ("sadness", ("难过", "伤心", "委屈", "想哭", "低落")),
-    ("loneliness", ("孤单", "孤独", "没人懂", "没人说话", "没人可以说", "一个人", "空落")),
-    ("anxiety", ("担心", "焦虑", "慌", "静不下来", "怕来不及", "悬着", "紧张")),
-    ("relaxed", ("轻松", "放下了", "踏实", "平静", "松了一口气", "舒服")),
-    ("gratitude", ("谢谢", "感谢", "谢了")),
-    ("joy", ("开心", "太好了", "期待", "高兴", "兴奋")),
-    ("surprise", ("没想到", "居然", "怎么会", "竟然")),
-    ("shame", ("丢脸", "都怪我", "我不配", "羞愧", "自责")),
-    ("disgust", ("恶心", "反感", "嫌弃", "厌恶")),
-    ("care", ("担心你", "你还好吗", "心疼")),
-    ("pride", ("我做到了", "还不错", "自豪", "骄傲")),
+    ("anger", ("烦", "烦躁", "气", "凭什么", "受不了", "想摔键盘")),
+    ("fear", ("怕", "害怕", "恐惧", "不敢")),
+    ("helplessness", ("无力", "没办法", "改变不了", "只能忍着", "看不到头")),
+    ("sadness", ("难过", "伤心", "委屈")),
+    ("loneliness", ("孤单", "没人懂", "没人说话", "没人可以说")),
+    ("anxiety", ("担心", "慌", "静不下来", "怕来不及", "悬着")),
+    ("relaxed", ("轻松", "放下了", "踏实多了", "平静")),
+    ("gratitude", ("谢谢", "感谢")),
+    ("joy", ("开心", "太好了", "期待")),
+    ("surprise", ("没想到", "居然", "怎么会")),
+    ("shame", ("丢脸", "都怪我", "我不配")),
+    ("disgust", ("恶心", "反感", "受不了这种东西")),
+    ("care", ("我为你担心", "你还好吗")),
+    ("pride", ("我做到了", "还不错吧")),
 ]
 
 EMOTIONS = [
@@ -85,6 +89,11 @@ def main(argv: list[str] | None = None) -> int:
         choices=[emotion for emotion, _ in RULES],
         help="只看某一个类的触发词：它会捞到哪些金标类的样本（用来判断这条规则是帮忙还是抢样本）",
     )
+    parser.add_argument(
+        "--audit",
+        action="store_true",
+        help="审计全部触发词：按「错配程度」排序，找出方向反了的词（fear 的『怕』就是这么找到的）",
+    )
     args = parser.parse_args(argv)
 
     references = read_jsonl(PROCESSED / "val_references.jsonl")
@@ -102,6 +111,58 @@ def main(argv: list[str] | None = None) -> int:
     total = len(texts)
     gold_counter = Counter(gold.values())
     majority, majority_count = gold_counter.most_common(1)[0]
+
+    # --- 0b) 全量审计：找出方向反了的触发词 ---
+    if args.audit:
+        audit = []
+        for emotion, patterns in RULES:
+            for pattern in patterns:
+                subset = [key for key, text in texts.items() if pattern in text]
+                if not subset:
+                    continue
+                subset_gold = Counter(gold[key] for key in subset)
+                own = subset_gold.get(emotion, 0)
+                majority, majority_count = subset_gold.most_common(1)[0]
+                audit.append({
+                    "emotion": emotion,
+                    "pattern": pattern,
+                    "fired": len(subset),
+                    "own": own,
+                    "precision": own / len(subset),
+                    "majority": majority,
+                    "majority_count": majority_count,
+                    "swing": majority_count - own,   # 把该词让给它的多数类，最多能净赚多少条
+                })
+
+        # 只关心触发量够大的词：小样本的精确率不可信
+        MIN_FIRED = 25
+        audit.sort(key=lambda item: -item["swing"])
+        print(f"全量 {total} 条；只列出触发 ≥ {MIN_FIRED} 次的词（小样本精确率不可信）\n")
+        print(f"{'词':<8}{'当前判给':<14}{'触发':>6}{'真本类':>7}{'精确率':>8}"
+              f"{'最多金标类':>14}{'净赚上界':>9}  判")
+        print("-" * 88)
+        for item in audit:
+            if item["fired"] < MIN_FIRED:
+                continue
+            misaligned = item["majority"] != item["emotion"] and item["precision"] < 0.35
+            verdict = "❌ 方向反了" if misaligned else ("➖ 偏弱" if item["precision"] < 0.35 else "✅")
+            print(f"{item['pattern']:<8}{item['emotion']:<14}{item['fired']:>6}{item['own']:>7}"
+                  f"{item['precision']:>8.4f}{item['majority'] + ' ' + str(item['majority_count']):>14}"
+                  f"{item['swing']:>+9}  {verdict}")
+
+        print()
+        bad = [item for item in audit if item["fired"] >= MIN_FIRED
+               and item["majority"] != item["emotion"] and item["precision"] < 0.35]
+        print(f"方向反了的词：{len(bad)} 个")
+        for item in bad:
+            print(f"  · 「{item['pattern']}」判给 {item['emotion']}，但 {item['fired']} 次触发里"
+                  f"最多的是 {item['majority']}（{item['majority_count']} 条），本类只有 {item['own']} 条"
+                  f" → 让出去最多净赚 {item['swing']} 条")
+        print()
+        print("读法：「净赚上界」= 把该词让给它的多数类时，最多能纠正的条数。")
+        print("      真实收益要看让出去之后它们落到哪条规则，所以这是上界；")
+        print("      但上界为负或很大的正数，都说明这个词该搬走。")
+        return 0
 
     # --- 0) 单类解释模式：这条触发词到底捞到了谁的样本 ---
     if args.explain:
