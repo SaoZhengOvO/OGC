@@ -359,6 +359,18 @@ def check_doc_code_sync() -> list[tuple[str, bool, str]]:
             f"{len(scripts)} 个脚本全部在 Runbook 里" if not missing else f"Runbook 缺：{missing}",
         ))
 
+    # 1b) Runbook 的工具清单必须覆盖本目录的全部工具
+    #     （这一条是 78 轮"守护表漏一半"的同类：靠人维护的清单会漂移）
+    tools = sorted(p.name for p in TOOLS.glob("*.py"))
+    runbook_text = (TOOLS / "RUNBOOK.md").read_text(encoding="utf-8")
+    missing_tools = [name for name in tools if name not in runbook_text]
+    results.append((
+        "Runbook 的工具清单覆盖全部工具脚本",
+        not missing_tools,
+        f"{len(tools)} 个工具全部在 Runbook 里" if not missing_tools
+        else f"Runbook 缺：{missing_tools}",
+    ))
+
     # 2) 更正索引声明的条数 == 实际行数
     report = REPO_ROOT / "docs" / "reports" / "role2-emotion-profile-v1-v3.md"
     if report.exists():

@@ -173,10 +173,49 @@ python3 tools/eval_loop.py --tag baseline --inference-script official
 
 ---
 
+## 3.5 工具清单（`tools/emotion_profile/`，共 19 个）
+
+**交付物相关（交付前必跑）**
+
+| 工具 | 干什么 |
+|---|---|
+| `selftest.py` | **27 项不变量自检**（改完任何东西先跑它；`--quick` 只跑 8 项） |
+| `verify_thresholds.py` | 独立复算 §十九 判读表的 5 个阈值（不依赖 `evaluate.py`） |
+| `verify_metrics.py` | 独立重算一遍指标，与 `evaluate.py` 对拍 |
+| `assess_verdict.py` | **按 §十九 出机械裁决**（判据逐条 ✅/❌ + 预登记核对 + 结论措辞） |
+| `preflight_chain.sh` | 起飞前 8 项检查（守护实例数 / 并发 / 依赖 / 等待目标是否已存在…） |
+| `watch_audit.py` | 守护链审计（等待条件撞车 / 路径一致 / 内联 Python 语法） |
+
+**造数据与提示词**
+
+| 工具 | 干什么 |
+|---|---|
+| `make_prompt.py` | 由模板渲染 `prompts/emotion_profile.md`（`--check` 校验一致） |
+| `make_eval_slice.py` | 造等距 / 分层切片（`--size`、`--strategy`、`--per-class`） |
+| `slice_representativeness.py` | 切片代表性体检（与全量逐维偏差） |
+| `preflight_slice.py` | 生成零成本下限的预测（"一律 anxiety + 画像留空"） |
+| `make_val_input.py` | 造 `val_input.jsonl`（全量跑用） |
+
+**分析与诊断**
+
+| 工具 | 干什么 |
+|---|---|
+| `compare_arms.py` | 多臂并排 + **配对显著性**（精确 McNemar）+ 逐条差异 |
+| `report.py` | 逐类 P/R/F1 + 画像五态分解 + 最亏的几类 |
+| `badcase_pack.py` | 给人读的 badcase 清单（含对话原文） |
+| `format_health.py` | 格式健康度（解析失败率 / 回复长度 / 残留污染） |
+| `emotion_rule_probe.py` | 情绪触发词探针（`--audit` / `--rules-file` / `--phrase-audit`） |
+| `style_rule_probe.py` | style 候选规则的 ΔEMA 探针 |
+| `show_class_examples.py` | 按类抽原文样例（写规则前先看真实措辞） |
+| `reweight_estimate.py` | 按分层切片重加权估计全量 |
+| `measure_recovery_gain.py` | 量化"抢救类"改动的价值（上界） |
+
+> 这张表与目录里的实际文件是**逐一对齐**的 —— 早期版本漏了 10 个工具，
+> 与 §6 守护表当初漏掉一半守护是同一类问题：**靠人维护的清单会漂移**。
+
 ## 4. 出证据
 
 `eval_loop.py` 只写 `score.json`，下面这些要单独跑（都读它的 `submission.jsonl`）：
-
 ```bash
 OUT=runs/eval-my-slice200
 REF=/mnt/workspace/OGC/runs/slice200/val_references.jsonl   # 全量时换成 data/processed/val_references.jsonl
