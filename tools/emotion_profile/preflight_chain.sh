@@ -98,3 +98,40 @@ for f in /mnt/workspace/.team-ssh/role2-*.sh; do
 done
 [ "$premature" -eq 0 ] && echo "  ✅ 正在运行的 $checked 个守护，没有一个的等待目标已存在"
 
+echo
+echo "=== ⑨ 触发判据会不会被「包装进程」误匹配（第 174 轮踩过）==="
+echo "  背景：队长起 SFT 用的是 bash -c 包一层 nohup python3 tools/train_sft.py，"
+echo "        那个包装进程的命令行里也含 train_sft.py，且训练结束后仍然存活。"
+echo "        于是 pgrep -f train_sft.py 永远返回 ≥1 → 等待循环**永不退出** → 链不会启动。"
+echo "  判据：一个 pgrep 模式若**同时匹配到命令行以 bash -c 开头的进程**，就有这个风险。"
+echo "  （注意：只扫**非注释行** —— 注释里会引述这个坑，算进来就是假阳性。）"
+risky=0
+for f in /mnt/workspace/.team-ssh/role2-*.sh; do
+    name=$(basename "$f")
+    pgrep -f "[r]ole2-${name#role2-}" >/dev/null 2>&1 || continue
+    # 先剥掉整行注释，再抽判据 —— 否则会把注释里的示例当成真判据
+    grep -v '^[[:space:]]*#' "$f" 2>/dev/null \
+      | grep -oE "pgrep -f ['\"][^'\"]+['\"]" \
+      | sed "s/pgrep -f ['\"]//; s/['\"]$//" | sort -u > /tmp/.pf9_pats.txt
+    while read -r pat; do
+        [ -z "$pat" ] && continue
+        for p in $(pgrep -f "$pat" 2>/dev/null); do
+            cmd=$(tr '\0' ' ' < "/proc/$p/cmdline" 2>/dev/null)
+            case "$cmd" in
+                *bash\ -c*)
+                    printf '  ⚠️ %-24s 判据 "%s" 匹配到包装进程 PID %s\n' "$name" "$pat" "$p"
+                    printf '       %s\n' "$(echo "$cmd" | cut -c1-90)"
+                    ;;
+            esac
+        done
+    done < /tmp/.pf9_pats.txt
+done > /tmp/.preflight9.txt 2>/dev/null
+rm -f /tmp/.pf9_pats.txt
+if [ -s /tmp/.preflight9.txt ]; then
+    cat /tmp/.preflight9.txt
+    risky=$(wc -l < /tmp/.preflight9.txt)
+else
+    echo "  ✅ 正在运行的守护里，没有判据会匹配到 bash -c 包装进程"
+fi
+rm -f /tmp/.preflight9.txt
+
