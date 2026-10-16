@@ -78,7 +78,7 @@ sha256sum runs/p02-only/emotion_profile.md runs/p02-v4/emotion_profile.md
 python3 tools/eval_loop.py --tag my-smoke --limit 20 \
     --inference-script wired --prompt-dir /mnt/workspace/OGC/runs/p02-only
 
-# --- 200 条等距切片（决策用）---
+# --- 200 条等距切片（决策用；总体无偏）---
 python3 tools/emotion_profile/make_eval_slice.py --size 200          # 只需跑一次
 python3 tools/emotion_profile/preflight_slice.py --slice runs/slice200  # 先预检，再占卡
 python3 tools/eval_loop.py --tag my-slice200 \
@@ -86,10 +86,28 @@ python3 tools/eval_loop.py --tag my-slice200 \
     --references /mnt/workspace/OGC/runs/slice200/val_references.jsonl \
     --inference-script wired --prompt-dir /mnt/workspace/OGC/runs/p02-v4
 
+# --- 分层诊断切片（只为看 per-class，总体 Acc 有偏、不能外推）---
+python3 tools/emotion_profile/make_eval_slice.py --strategy stratified --per-class 15
+python3 tools/eval_loop.py --tag my-strat15 \
+    --source /mnt/workspace/OGC/runs/stratified15/val_samples.jsonl \
+    --references /mnt/workspace/OGC/runs/stratified15/val_references.jsonl \
+    --inference-script wired --prompt-dir /mnt/workspace/OGC/runs/p02-v4
+
 # --- 全量（结论用）---
 python3 tools/eval_loop.py --tag my-full \
     --inference-script wired --prompt-dir /mnt/workspace/OGC/runs/p02-v4
 ```
+
+**两种切片别混用**：
+
+| 切片 | 取样 | 总体 Acc | 用途 |
+|---|---|---|---|
+| `--size 200`（等距） | 跨全 val 每 11.77 条取一条 | **可代表全量**（逐维偏差 0.0024） | 决策：要不要改 / 要不要推全量 |
+| `--strategy stratified --per-class 15`（230 条） | 每类情绪固定 15 条（小类全取） | **有偏，不能外推**（style 偏差 0.0826） | 诊断：小类到底能不能救 |
+
+为什么要有分层那种：全量里 `surprise` 9 条、`care` 11 条，
+200 条等距切片里各只有约 1 条，per-class 指标没有意义；
+分层切片把 16 类都凑到 ≥9 条。
 
 裸基线对照（官方原件，无接线层）：
 
