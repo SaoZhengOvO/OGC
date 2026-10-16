@@ -268,7 +268,7 @@ python3 tools/emotion_profile/make_prompt.py --check
 git status --short                            # 只应有本线文件；不要 git add -A
 ```
 
-`selftest.py` 检查的是**有确定答案的不变量**，不是"跑完不报错"：
+`selftest.py` 检查的是**有确定答案的不变量**，不是"跑完不报错"（当前 **16 项**）：
 
 | 检查 | 当前值 |
 |---|---|
@@ -282,6 +282,13 @@ git status --short                            # 只应有本线文件；不要 g
 | style 探针：无规则 ΔEMA > +0.01 | 最好 +0.0008 |
 | v3 与 v5a 关键词准确率相同 | 0.3356 |
 | v6 关键词准确率高于 v3 | 0.3356 → 0.4125 |
+| `verify_metrics` 与 `evaluate.py` 对数一致 | eval-v3-smoke 逐项吻合 |
+| `format_health` 能定位 10% 解析失败的那一臂 | ✅ |
+| `measure_recovery_gain` 可量化抢救修法价值 | ✅ |
+| `watch_audit`：守护链无真实冲突 | 占卡守护无撞车、目录无共用 |
+
+> `watch_audit` 那一项会**优先审计实际部署的脚本**（`/mnt/workspace/.team-ssh`），
+> 因为它才是真正在跑的那份；仓库里的 `watchers/` 只是源码副本。
 
 **任何一次改动之后先跑它** —— 这一夜这些工具改了很多次，还改出过两个自己的 bug
 （审计对象用了近似词表、评估漏算兜底分支），有这条检查才敢继续改。

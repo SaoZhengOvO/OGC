@@ -168,6 +168,58 @@ def check_probes(quick: bool) -> list[tuple[str, bool, str]]:
     return results
 
 
+def check_new_tools() -> list[tuple[str, bool, str]]:
+    """第 50~66 轮新增的四个工具：确认它们仍能跑、且关键结论仍在。
+
+    这几个工具是那一夜调查的产物，如果它们悄悄坏了，
+    报告里引用它们的结论就失去可复现性 —— 所以必须一起自检。
+    """
+    results: list[tuple[str, bool, str]] = []
+
+    # verify_metrics：独立重算必须与 evaluate.py 完全一致（有一个已完成的臂就够）
+    code, out = run([sys.executable, str(TOOLS / "verify_metrics.py"), "--tag", "eval-v3-smoke"])
+    ok = code == 0 and "✅ 全部对上" in out
+    results.append((
+        "verify_metrics 与 evaluate.py 对数一致",
+        ok,
+        "eval-v3-smoke 逐项吻合" if ok else out[-200:],
+    ))
+
+    # format_health：必须能诊断出唯一那个有解析失败的臂
+    code, out = run([sys.executable, str(TOOLS / "format_health.py"),
+                     "--tag", "mi300x-v4-smoke", "--tag", "v3-smoke"])
+    ok = (code == 0 and "eval-mi300x-v4-smoke" in out and "10.00%" in out)
+    results.append((
+        "format_health 能定位 10% 解析失败的那一臂",
+        ok,
+        "mi300x-v4-smoke 显示 10.00%" if ok else out[-200:],
+    ))
+
+    # measure_recovery_gain：必须能算出"抢救修法只值 ±0.0001"这个结论
+    code, out = run([sys.executable, str(TOOLS / "measure_recovery_gain.py"),
+                     "--tag", "eval-mi300x-v4-smoke"])
+    ok = code == 0 and "BLEU-4" in out
+    results.append((
+        "measure_recovery_gain 可量化抢救修法价值",
+        ok,
+        "输出含 BLEU-4 对照" if ok else out[-200:],
+    ))
+
+    # watch_audit：守护链之间不应有真实并发冲突。
+    # 优先审**实际部署的那份**（/mnt/workspace/.team-ssh），因为它才是真正在跑的；
+    # 仓库里的 watchers/ 是源码副本，box 上不一定有。
+    deployed = Path("/mnt/workspace/.team-ssh")
+    audit_dir = deployed if deployed.is_dir() else TOOLS / "watchers"
+    code, out = run([sys.executable, str(TOOLS / "watch_audit.py"), "--dir", str(audit_dir)])
+    ok = "没有两个【占卡】守护等同一个文件" in out and "没有两个守护共用同一个提示词目录" in out
+    results.append((
+        "watch_audit：守护链无真实冲突",
+        ok,
+        f"审计目录 {audit_dir.name}；占卡守护无撞车、目录无共用" if ok else out[-300:],
+    ))
+    return results
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description="角色② 工具链自检")
     parser.add_argument("--quick", action="store_true", help="跳过跑全量 2354 条的慢项")
@@ -209,6 +261,9 @@ def main(argv: list[str] | None = None) -> int:
         results.append(("compare_arms 自比全 0、全不显著", ok, detail))
 
         results.extend(check_probes(args.quick))
+
+        if not args.quick:
+            results.extend(check_new_tools())
     finally:
         if not args.keep and tmp.exists():
             shutil.rmtree(tmp, ignore_errors=True)
