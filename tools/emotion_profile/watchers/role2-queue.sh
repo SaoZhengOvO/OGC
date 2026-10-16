@@ -11,7 +11,18 @@ say() { echo "[$(date '+%m-%d %H:%M:%S')] $*" | tee -a "$LOG"; }
 say "排队器启动：等 train_sft.py 结束"
 
 # 等 SFT 结束（每 60 秒看一眼）
-while pgrep -f "train_sft.py" >/dev/null 2>&1; do
+#
+# ⚠️ 判据必须用**行首锚定**的 `^python3 tools/train_sft`，不能用裸的 `train_sft.py`。
+# 原因（第 174 轮实测）：队长起 SFT 时用的是
+#     bash -c "… setsid nohup python3 tools/train_sft.py … & sleep 4; echo relaunched"
+# 那个 **`bash -c` 包装进程的命令行里也含 `train_sft.py`**，而且它在训练结束后
+# **仍然存活**（实测已存活 2 小时以上，远超它自己那 4 秒）。
+# 于是 `pgrep -f "train_sft.py"` 会**永远返回 ≥1** → 这个 while 循环**永不退出**
+# → **整条链今晚根本不会启动**。
+# 实测对照：
+#     pgrep -f "train_sft.py"             -> 2 个（含包装进程）
+#     pgrep -f "^python3 tools/train_sft" -> 1 个（只有真正的 python3）✅
+while pgrep -f '^python3 tools/train_sft' >/dev/null 2>&1; do
     sleep 60
 done
 say "SFT 已结束"

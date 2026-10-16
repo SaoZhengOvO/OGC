@@ -14,7 +14,9 @@ say() { echo "[$(date '+%m-%d %H:%M:%S')] $*" | tee -a "$LOG"; }
 
 say "切片守护启动：等 train_sft.py 结束"
 
-while pgrep -f "train_sft.py" >/dev/null 2>&1; do
+# ⚠️ 同 role2-queue.sh：判据必须行首锚定，否则会匹配到队长的 `bash -c` 包装进程
+# （它的命令行里也含 `train_sft.py`，且训练结束后仍然存活）→ 循环永不退出。
+while pgrep -f '^python3 tools/train_sft' >/dev/null 2>&1; do
     sleep 30
 done
 say "SFT 已结束"
