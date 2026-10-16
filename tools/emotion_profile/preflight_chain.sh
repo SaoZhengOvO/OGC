@@ -47,10 +47,18 @@ grep "守护启动\|排队器启动" runs/.gpu-queue-watcher.log | tail -14
 
 echo
 echo "=== ④ 上游依赖完整性 ==="
-echo -n "  切片文件行数: "
+echo -n "  切片源行数（应为 200）: "
 wc -l < runs/slice200/val_samples.jsonl
+echo -n "  切片参考行数（应为 200）: "
+wc -l < runs/slice200/val_references.jsonl
 printf '  切片偏差: %s\n' "$(python3 -c "import json;print(round(max(json.load(open('runs/slice200/slice_manifest.json'))['abs_diff'].values()),6))")"
-echo "  六个提示词目录:"
+# 全量臂（queue / integ-full）**不传 --source**，走 eval_loop 的默认 data/processed/val_*.jsonl。
+# 如果默认文件行数不是 2354，那两个"全量"跑出来的就不是全量 —— 而且不会报错。
+echo -n "  全量默认源行数（应为 2354）: "
+wc -l < data/processed/val_samples.jsonl
+echo -n "  全量默认参考行数（应为 2354）: "
+wc -l < data/processed/val_references.jsonl
+echo "  提示词目录（每个应只含 1 个文件）:"
 for d in runs/p02-only runs/p02-v4 runs/p02-v5a runs/p02-v6 runs/p02-v7 runs/p02-v8 runs/p03-new; do
     [ -d "$d" ] && printf '    %-16s %s 个文件\n' "$d" "$(ls -1 $d | wc -l)"
 done
