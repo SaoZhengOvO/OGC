@@ -652,3 +652,45 @@ v3 的「陈述事实/下指令/礼貌回应 → neutral」：审计 113 条触�
 - 新守护：`role2-slice-v6.sh`、`role2-slice-v7.sh`、`role2-integration.sh`、
   `role2-full-compare.sh`、`role2-publish-results.sh`（共 10 个，全部入仓库）
 - 报告新增 §十八～§二十一
+
+## 19. 守护链的触发条件图与并发合规（含一次真实违规的修复）
+
+### 19.1 修掉的违规：两个守护等同一个条件
+
+健康检查时发现 `role2-slice-v7.sh` 与 `role2-integration.sh`
+**等的是同一个文件** `runs/eval-v6-slice200/score.json`。
+切片链约 03:00 到 v6，而 v3 全量要跑到 ~04:00 —— 两者会同时启动，
+加上全量就是 **3 个 GPU 任务并发**，违反 `runs/GPU-RULES.md` 的「同时最多 2 个」。
+
+修复：把集成的触发条件改成 **v7**，整条链变成严格串行。
+
+**这类 bug 不报错、只悄悄多占一张卡**，要到触发时（凌晨 3 点）才暴露。
+所以守护链也需要一次**收敛性检查**：把所有触发条件画出来，确认任意时刻并发 ≤ 2。
+
+### 19.2 触发条件图（改守护前先看这张表）
+
+| 守护 | 等什么 | 跑什么 | 占卡？ |
+|---|---|---|---|
+| `role2-queue.sh` | `train_sft.py` 结束 | v3 全量（卡位 A） | ✅ |
+| `role2-slice.sh` | v3 全量在跑 | v3-slice200 → v4-slice200（卡位 B） | ✅ |
+| `role2-slice-report.sh` | v4 出分 | 出 `SLICE-COMPARISON.md` | ❌ CPU |
+| `role2-slice-v5a.sh` | v4 出分 | v5a-slice200 | ✅ |
+| `role2-slice-v6.sh` | v5a 出分 | v6-slice200 | ✅ |
+| `role2-slice-v7.sh` | v6 出分 | v7-slice200 | ✅ |
+| `role2-integration.sh` | **v7 出分** | 集成切片（②+③ 两篇） | ✅ |
+| `role2-postprocess.sh` | v3 全量完成 | samples / report / badcase | ❌ CPU |
+| `role2-full-compare.sh` | v3 全量完成 | vs 下限的配对显著性 | ❌ CPU |
+| `role2-publish-results.sh` | `FULL-COMPARISON.md` | 写成仓库内交付文件 | ❌ CPU |
+
+**并发性质**：卡位 A 只有 1 个任务；卡位 B 是一条严格串行的链。
+所以任意时刻 GPU 任务数 ≤ 2 ✅
+
+### 19.3 可复用的核对命令
+
+```bash
+bash /mnt/workspace/.team-ssh/role2-health.sh
+```
+
+它一次输出：每个守护的实例数（应各为 1）、卡上正在跑的 python3、
+SFT 进度、守护日志尾部、以及是否已有评测产物。
+**加任何新守护之后都跑一次**，确认实例数不重复、并发不超过 2。
