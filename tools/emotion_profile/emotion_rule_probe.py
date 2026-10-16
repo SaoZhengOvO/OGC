@@ -80,7 +80,39 @@ def classify(text: str, fallback: str) -> str:
     return fallback
 
 
+def load_rules(path: Path) -> list[tuple[str, tuple[str, ...]]]:
+    """从提示词模板里解析第一步的触发词表。
+
+    只认「以引号开头、含 `→ 某情绪`」的行 —— 那正是第一步的词表格式，例如：
+
+        "烦""烦躁""气" → anger
+
+    第二步的规则行（如 `对还没发生的事反复担心 → anxiety`）不以引号开头，会被跳过。
+    `#` 开头的注释行也跳过。
+
+    有了它，就能**直接拿任意候选模板估它的关键词分类器准确率**，
+    而不必手抄词表（手抄正是 18.3 那次自我更正的起因）。
+    """
+    rules: list[tuple[str, tuple[str, ...]]] = []
+    for raw in path.read_text(encoding="utf-8").splitlines():
+        line = raw.strip()
+        if not line or line.startswith("#") or "→" not in line:
+            continue
+        if not line.startswith('"'):
+            continue
+        head, _, tail = line.partition("→")
+        emotion = tail.strip()
+        if emotion not in EMOTIONS:
+            continue
+        words = re.findall(r'"([^"]+)"', head)
+        if words:
+            rules.append((emotion, tuple(words)))
+    return rules
+
+
 def main(argv: list[str] | None = None) -> int:
+    global RULES
+
     parser = argparse.ArgumentParser(description="纯关键词情绪分类器探针")
     parser.add_argument("--fallback", default="anxiety", choices=EMOTIONS, help="规则都不中时的兜底类")
     parser.add_argument(
@@ -94,7 +126,57 @@ def main(argv: list[str] | None = None) -> int:
         action="store_true",
         help="审计全部触发词：按「错配程度」排序，找出方向反了的词（fear 的『怕』就是这么找到的）",
     )
+    parser.add_argument(
+        "--rules-file",
+        default=None,
+        help="从提示词模板里读词表（不手抄）。可给多个用逗号分隔，会逐个跑并对比准确率",
+    )
     args = parser.parse_args(argv)
+
+    # 用模板里的词表替换内置 RULES：避免手抄出错（见报告 §18.3）
+    if args.rules_file:
+        loaded = []
+        for item in args.rules_file.split(","):
+            path = Path(item.strip())
+            if not path.is_absolute():
+                path = REPO_ROOT / path
+            rules = load_rules(path)
+            if not rules:
+                raise SystemExit(f"从 {path} 里没解析到任何词表行")
+            loaded.append((path.name, rules))
+        if len(loaded) == 1:
+            RULES = loaded[0][1]
+        else:
+            # 多份模板：逐个跑，只对比整体准确率
+            references = read_jsonl(PROCESSED / "val_references.jsonl")
+            samples = {row["id"]: row for row in read_jsonl(PROCESSED / "val_samples.jsonl")}
+            rows = []
+            for reference in references:
+                sample = samples.get(reference["id"])
+                if sample is None:
+                    continue
+                rows.append((last_user_turn(sample), (reference.get("target") or {}).get("emotion_label")))
+            print(f"对比 {len(loaded)} 份模板的词表（全量 {len(rows)} 条，兜底 {args.fallback}）\n")
+            print(f"{'模板':<28}{'词表条数':>9}{'触发条数':>9}{'准确率':>9}{'相对兜底':>10}")
+            print("-" * 66)
+            for name, rules in loaded:
+                hits = fired = 0
+                for text, gold in rows:
+                    # 未命中任何规则时用兜底类 —— 漏掉这一步会把兜底的分算成 0，
+                    # 得出「规则越少越差」的错误结论（这个坑踩过一次）。
+                    predicted = args.fallback
+                    for emotion, patterns in rules:
+                        if any(pattern in text for pattern in patterns):
+                            predicted = emotion
+                            fired += 1
+                            break
+                    hits += 1 if predicted == gold else 0
+                accuracy = hits / len(rows)
+                print(f"{name:<28}{len(rules):>9}{fired:>9}{accuracy:>9.4f}{accuracy - 0.3190:>+10.4f}")
+            print()
+            print("（兜底准确率 = 一律答 anxiety = 0.3190；这是**关键词分类器**上的估计，")
+            print("  真实模型未必那么字面，最终以切片实测为准。）")
+            return 0
 
     references = read_jsonl(PROCESSED / "val_references.jsonl")
     samples = {row["id"]: row for row in read_jsonl(PROCESSED / "val_samples.jsonl")}
