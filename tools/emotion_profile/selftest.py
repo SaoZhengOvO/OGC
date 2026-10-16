@@ -372,6 +372,31 @@ def check_doc_code_sync() -> list[tuple[str, bool, str]]:
         else f"Runbook 缺：{missing_tools}",
     ))
 
+    # 1c) 文档里写的"LOG 台账到第几节"必须与实际一致
+    #     第 138 轮发现导读目录写着 §1–§21 而台账已经到 §26 ——
+    #     这类"文档内数字漂移"与守护表/工具表是同一类，都靠人记着更新。
+    log_text = (TOOLS / "LOG.md").read_text(encoding="utf-8")
+    actual_max = 0
+    for line in log_text.splitlines():
+        match = re.match(r"^## (\d+)\.", line)
+        if match:
+            actual_max = max(actual_max, int(match.group(1)))
+    claimed = set()
+    for label in ("报告 §〇之三 的配套材料",):
+        del label  # 只为可读性，实际从两处文本里抽
+    for doc_text in (
+        (REPO_ROOT / "docs" / "reports" / "role2-emotion-profile-v1-v3.md").read_text(encoding="utf-8"),
+        runbook_text,
+    ):
+        claimed.update(int(n) for n in re.findall(r"§1[–-]§(\d+)", doc_text))
+    wrong = sorted(n for n in claimed if n != actual_max)
+    results.append((
+        "文档写的 LOG 节数与台账实际一致",
+        not wrong,
+        f"文档写 §1–§{actual_max}，台账实际到 §{actual_max}" if not wrong
+        else f"❌ 文档写 §1–§{wrong}，台账实际到 §{actual_max}",
+    ))
+
     # 2) 更正索引声明的条数 == 实际行数
     report = REPO_ROOT / "docs" / "reports" / "role2-emotion-profile-v1-v3.md"
     if report.exists():

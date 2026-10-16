@@ -93,7 +93,7 @@ v1 的提示词相对裸基线是**负收益**（情绪 −0.05、画像 −0.13
 | **十九.2c/d** | 集成会产生 **10% 解析失败**；机制已用数据分离确认 |
 | **二十** | 🚨 最大结构性缺口：第二步只能到达 16 类里的 4 类（不可达 ≥23%） |
 
-### ⚪ 过程记录（9 节，按需查阅）
+### ⚪ 过程记录（12 节，按需查阅）
 
 | 节 | 内容 |
 |---|---|
@@ -106,10 +106,14 @@ v1 的提示词相对裸基线是**负收益**（情绪 −0.05、画像 −0.13
 | 十一、十二 | 早期方向与预登记（部分已被 §十九 取代） |
 
 > **配套材料**（都在本仓库内，可独立阅读）：
-> * `tools/emotion_profile/LOG.md` —— 逐轮台账（§1–§21），含每一次踩坑与更正
+> * `tools/emotion_profile/LOG.md` —— 逐轮台账（§1–§26），含每一次踩坑与更正
 > * `tools/emotion_profile/RUNBOOK.md` —— 可复现的操作步骤
-> * `tools/emotion_profile/selftest.py` —— 12 项不变量自检（`python3 tools/emotion_profile/selftest.py`）
+> * `tools/emotion_profile/RESUME.md` —— 进度快照 / 恢复指引（含**收尾清单**）
+> * `tools/emotion_profile/selftest.py` —— 不变量自检（**项数以运行输出为准**，别在文档里写死数字）
 > * `docs/reports/role2-full-val-results.md` —— 全量数字（由守护自动生成，跑完才有）
+>
+> ⚠️ 上面这些数字（§ 编号、自检项数）**会随每次改动漂移** ——
+> 若与实际不符，以实际为准；`selftest.py` 里有一条"Runbook 覆盖度"检查专门盯这类不一致。
 
 ---
 
@@ -443,7 +447,7 @@ python3 tools/eval_loop.py --tag v3-full \
     --inference-script wired --prompt-dir /mnt/workspace/OGC/runs/p02-only
 
 # 5) 复现后自验 —— 这两条命令是"可复用"的验收标准
-python3 tools/emotion_profile/selftest.py          # 25 项不变量（含判读表 5 个阈值的独立复算）
+python3 tools/emotion_profile/selftest.py          # 不变量自检（含判读表 5 个阈值的独立复算）
 bash tools/emotion_profile/preflight_chain.sh      # 8 项起飞前检查（含"等待目标是否已存在"）
 ```
 
@@ -1382,7 +1386,7 @@ v8 换成给一整个 JSON 骨架，是在补官方的缺口。**但不能指望
 | 九臂并排总表 | `runs/ALL-ARMS-COMPARISON.md` | ❌ gitignore（`final-report` 守护生成） |
 | 过程与方法 | 本报告 + `tools/emotion_profile/LOG.md` | ✅ |
 | 复现步骤 | `tools/emotion_profile/RUNBOOK.md` | ✅ |
-| 不变式自检 | `tools/emotion_profile/selftest.py`（**25 项**） | ✅ |
+| 不变式自检 | `tools/emotion_profile/selftest.py`（**项数以运行输出为准**） | ✅ |
 | 判读表阈值独立复算 | `tools/emotion_profile/verify_thresholds.py` | ✅ |
 
 ---

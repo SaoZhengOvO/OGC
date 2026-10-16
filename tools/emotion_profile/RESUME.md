@@ -54,7 +54,7 @@ ls runs/eval-v3-slice200/score.json runs/eval-v3-full/performance_report.json \
 # 3) 按 §十九 判读表出机械裁决（这才是"守住验收门"的出处）
 python3 tools/emotion_profile/assess_verdict.py
 
-# 4) 不变量自检（29 项）
+# 4) 不变量自检（项数以运行输出为准）
 python3 tools/emotion_profile/selftest.py
 
 # 5) 守护的日志（谁在等什么、跑完没）

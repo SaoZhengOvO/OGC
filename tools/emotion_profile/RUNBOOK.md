@@ -4,7 +4,7 @@
 > * `LOG.md` —— 逐轮台账（踩坑与更正）
 > * `RESUME.md` —— **进度快照 / 恢复指引**（万一实例被关机或会话中断，照它继续）
 > * `../docs/reports/role2-emotion-profile-v1-v3.md` —— 正式报告
-> * `selftest.py` —— **29 项不变量自检**（改完任何东西先跑它）
+> * `selftest.py` —— **不变量自检**（项数以运行输出为准）（改完任何东西先跑它）
 
 > 一条实验从「想到一个改动」到「能下结论」的完整流程。
 > 全部命令都在 `/mnt/workspace/OGC` 下执行（AMD MI300X 实例）。
@@ -185,7 +185,7 @@ python3 tools/eval_loop.py --tag baseline --inference-script official
 
 | 工具 | 干什么 |
 |---|---|
-| `selftest.py` | **27 项不变量自检**（改完任何东西先跑它；`--quick` 只跑 8 项） |
+| `selftest.py` | **不变量自检**（项数以运行输出为准）（改完任何东西先跑它；`--quick` 只跑 8 项） |
 | `verify_thresholds.py` | 独立复算 §十九 判读表的 5 个阈值（不依赖 `evaluate.py`） |
 | `verify_metrics.py` | 独立重算一遍指标，与 `evaluate.py` 对拍 |
 | `assess_verdict.py` | **按 §十九 出机械裁决**（判据逐条 ✅/❌ + 预登记核对 + 结论措辞） |
@@ -278,7 +278,7 @@ bash tools/emotion_profile/preflight_chain.sh
 
 它一次回答"**能不能安心让它自己跑一夜**"（七项）：每个守护是否恰好 1 个实例 /
 `watch_audit` 复核并发与路径 / 各守护的触发条件 / 上游依赖完整性 /
-磁盘与卡上进程 / `selftest` 16 项 / 集成全量旗标状态。
+磁盘与卡上进程 / `selftest`（项数以运行输出为准） / 集成全量旗标状态。
 
 为什么值得跑：这一夜修的两类守护 bug（重复触发条件 → 多占一张卡；路径不一致 →
 拷到 A 却跑 B）以及三次"残留/前缀/近似"陷阱，**全都是不报错、只在凌晨静默出错**的类型。
@@ -367,7 +367,7 @@ python3 tools/emotion_profile/make_prompt.py --check
 git status --short                            # 只应有本线文件；不要 git add -A
 ```
 
-`selftest.py` 检查的是**有确定答案的不变量**，不是"跑完不报错"（当前 **16 项**）：
+`selftest.py` 检查的是**有确定答案的不变量**，不是"跑完不报错"（项数以运行输出为准）：
 
 | 检查 | 当前值 |
 |---|---|
