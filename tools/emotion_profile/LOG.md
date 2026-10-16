@@ -357,3 +357,47 @@ emotion_acc 与 profile_acc 不掉。
 | `role2-slice.sh` | 等 v3 全量起来 → 在**第 2 个卡位**跑 `v3-slice200` 与 `v4-slice200` |
 
 三个守护加起来只用 2 个卡位，符合「同时最多 2 个 GPU 任务」。
+
+## 8. v5a 候选：修「优先级」而不是修词表（等 v4 结果后测）
+
+用 `badcase_pack.py` 把 v3 在 20 条上的 8 个情绪错例全部还原成对话原文，
+发现**其中 6 个是同一个机制**：v3 里那条「下指令 / 礼貌回应 → neutral」的排除规则，
+压过了第一步已经命中的情绪词。
+
+| 样本 | 金标 | v3 猜 | 用户原话关键片段 | 该命中 | 被谁压掉 |
+|---|---|---|---|---|---|
+| `val_000001_t3` | gratitude | neutral | 「**谢谢**你的建议…更希望你先听我说」 | `谢谢`→gratitude | 提要求→neutral |
+| `val_000003_t5` | helplessness | neutral | 「**没人可以说**…你帮我出个主意」 | `没人可以说`→loneliness | 提要求→neutral |
+| `val_000007_t3` | anxiety | neutral | 「更让我**担心**的是…能不能给我建议」 | `担心`→anxiety | 提要求→neutral |
+| `val_000015_t5` | fear | anxiety | 「此刻只觉得**害怕**又无力」 | `害怕`→fear | 被压 |
+| `val_000006_t5` | anger | sadness | 「**你倒是挺会找补**…听不进建议」 | 讽刺→anger | 没生效 |
+| `val_000012_t5` | helplessness | mixed | 「更**无力**了…改变不了…挺没劲的」 | `无力`→helplessness | 被当成两极性→mixed |
+
+**反讽的规律**：v1 是「anxiety 当默认」，v2 是「relaxed 当默认」，v3 变成了「neutral 当默认」。
+每禁掉一个默认值，模型就抓下一个。所以这次修的不是词表，而是**优先级本身**。
+
+v5a 的唯一改动（`prompt_rules.v5a.txt`，已用 `Compare-Object` 核验只多 5 行、画像段一字未动）：
+
+```
+规则优先级是固定的：第一步的情绪词 > 第二步的情境 > 上面这两条排除规则。
+只要第一条规则已经被满足，它就是最终答案，下面两条排除规则**不再适用**。
+上面那两条排除规则**只在整条消息里一个情绪词都没有时**才可以用。
+例如消息里既有"谢谢"又有"你能不能先听我先说"，应该输出 gratitude 而不是 neutral；
+既有"担心"又有"能不能给我建议"，应该输出 anxiety 而不是 neutral。
+```
+
+与 v4 的关系：**两处改动正交**（v4 只动画像/style，v5a 只动情绪优先级），
+所以 v5a 可以叠在 v4 上；但按「一次只改一处」，**等 v4 的切片结果出来再测 v5a**。
+
+候选产物已放在 `runs/p02-v5a/`（独立目录）。三个版本的产物哈希：
+`p02-only(v3)=6bcd6515` / `p02-v4=ce75f8cb` / `p02-v5a=66fb9df2`。
+
+守护链（每个都在共享盘上，不依赖本地笔记本）：
+
+```
+role2-queue.sh        → SFT 结束 → 起 v3 全量
+role2-slice.sh        → v3 全量起来 → 跑 v3-slice200、v4-slice200
+role2-slice-report.sh → v4-slice200 出分 → 出 runs/SLICE-COMPARISON.md（下限/v3/v4）
+role2-slice-v5a.sh    → 同上之后再跑 v5a-slice200 → 出 runs/SLICE-COMPARISON-v5a.md
+role2-postprocess.sh  → v3 全量跑完 → 出 samples/report/badcase
+```
