@@ -117,7 +117,7 @@ v1 的提示词相对裸基线是**负收益**（情绪 −0.05、画像 −0.13
 | 十一、十二 | 早期方向与预登记（部分已被 §十九 取代） |
 
 > **配套材料**（都在本仓库内，可独立阅读）：
-> * `tools/emotion_profile/LOG.md` —— 逐轮台账（§1–§26），含每一次踩坑与更正
+> * `tools/emotion_profile/LOG.md` —— 逐轮台账（§1–§27），含每一次踩坑与更正
 > * `tools/emotion_profile/RUNBOOK.md` —— 可复现的操作步骤
 > * `tools/emotion_profile/RESUME.md` —— 进度快照 / 恢复指引（含**收尾清单**）
 > * `tools/emotion_profile/selftest.py` —— 不变量自检（**项数以运行输出为准**，别在文档里写死数字）
