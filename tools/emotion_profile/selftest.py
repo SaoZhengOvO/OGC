@@ -411,7 +411,27 @@ def check_sample_schema() -> list[tuple[str, bool, str]]:
         f"{sample.parent.name}：compare_arms 需要的字段 {sorted(used)} 都在"
         if not missing else f"缺 {missing}（会让配对静默算错）",
     ))
+    results.extend(check_thresholds())
     return results
+
+
+def check_thresholds() -> list[tuple[str, bool, str]]:
+    """判读表（报告 §十九）的 5 个阈值必须与全量真值一致。
+
+    那张表是「守住验收门」的整套判据，地基就是这 5 个数
+    （情绪下限 / 画像下限 / 三维各自的留空率）。**任何一个算错，结论就反了。**
+    这里直接跑 `verify_thresholds.py`（它按最朴素的定义从头算），要求输出"全部吻合"。
+    """
+    refs = REPO_ROOT / "data" / "processed" / "val_references.jsonl"
+    if not refs.exists():
+        return [("判读表 5 个阈值与全量真值一致", True, "没有全量真值文件，跳过")]
+    code, out = run([sys.executable, str(TOOLS / "verify_thresholds.py")])
+    ok = code == 0 and "全部吻合" in out
+    return [(
+        "判读表 5 个阈值与全量真值一致",
+        ok,
+        "五个数独立重算全部吻合（差 < 5e-5）" if ok else out[-300:],
+    )]
 
 
 def main(argv: list[str] | None = None) -> int:
