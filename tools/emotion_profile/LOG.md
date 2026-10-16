@@ -110,3 +110,127 @@ python tools/emotion_profile/badcase_pack.py --per-sample <产物>/samples.jsonl
    量不到角色②③的提示词、也量不到角色④的检索。
    → 「五个人用同一把尺子」这条目前是断的。修法：加 `--inference-script` 开关，
    默认指向 `deploy/participant/run_inference.py`。
+
+> **2026-10-16 更新**：两个都已由角色①修掉。`eval_loop.py` 现在有
+> `--inference-script wired|official`、`--prompt-dir`、`--model-path`，
+> 台账还加了 `script` / `prompts` 两列做证据。`fetch_model.py` 的分片索引问题也已修。
+
+---
+
+# 第二轮：AMD MI300X 上的 v1 → v3（2026-10-16）
+
+## 环境换到 MI300X
+
+`ssh -p 30817 root@frp-rug.com`，代码在 `/mnt/workspace/OGC`，模型已就位。
+`torch 2.12.0+git6bbd260`（HIP 7.2.53211）· 显存 191.7 GB · 单条 1.4–2.6 秒 ·
+**一轮 smoke(n=20) 约 3.5 分钟**。
+
+## 实验协议（控制变量）
+
+`prompts/response.md` 是角色③在 22:50 交付的，而基线是 22:05 跑的。
+为了让「只改了②的提示词」这个结论成立，**v2/v3 实验都把提示词目录隔离**：
+
+```bash
+python3 tools/eval_loop.py --tag <tag> --limit 20 \
+    --inference-script wired --prompt-dir /mnt/workspace/OGC/runs/p02-only
+```
+
+## 逐版结果（n=20，val 前 20 条）
+
+| 指标 | official(裸) | v1 | v2 | **v3** |
+|---|---|---|---|---|
+| 情绪 Acc | 0.5000 | 0.4500 | 0.4500 | **0.6000** |
+| 画像 Acc（三维均值） | 0.4500 | 0.3167 | 0.2833 | **0.5000** |
+| └ personality_traits | 0.6000 | 0.2500 | 0.2000 | **0.6000** |
+| └ interests | 0.5500 | 0.4000 | 0.5500 | **0.6000** |
+| └ style | 0.2000 | 0.3000 | 0.1000 | **0.3000** |
+| personality 精确率 | 0.0000 | 0.1667 | — | **0.5000** |
+| personality micro-F1 | 0.0000 | 0.2424 | — | **0.3077** |
+
+**v3 三项验收门全部达成**（情绪 >0.50、画像 >0.45、style ≥0.30）。
+相对裸基线：**情绪 +0.10、画像 +0.05**。
+
+## 诊断（有数据支撑）
+
+### 一、官方那棵树的画像几乎不填
+
+`official/score.json` 三个维度都满足 `micro_f1 == 0` 且 `exact_match_acc == macro_jaccard`。
+由 `src/evaluate.py:213-234`：`macro_jaccard` 在 `pred ∪ ref = ∅` 时记 1.0，
+所以预测为空时 Jaccard 恒等于 EMA。
+**官方画像 Acc 0.45 = 金标为空的比例，不是模型能力。**
+
+> 因此 `COMPUTE.md` §6 第 3 条「标签词表对不上、改格式就能拿分」是**误诊**：
+> 官方那棵树根本没有标签可对，micro-F1 归零是因为 `tp=0`。
+
+这 20 条的金标为空率：personality 13/20、interests 13/20、style 4/20。
+→ **personality / interests 的最优策略是「留空」，style 必须填。**
+
+### 二、v1 为什么把 personality_traits 打成 0.25
+
+v1 在画像段落里写了「一句话 → 标签」的示例映射，模型把它当成了填写许可：
+
+- 输出 `['introverted','sensitive']` 这个**完全相同的组合出现 6 次**，
+  精确对应 v1 那句 `"我不太敢跟陌生人说话" → introverted 或 sensitive`
+- personality 共输出 24 个标签、命中 4 个（**精确率 16.7%**，远低于 50% 盈亏线）
+- `该空却填` 7 条 → 把官方靠留空拿到的 12 条打掉 7 条
+
+### 三、v1 为什么把情绪打成 0.45：anxiety 过度吸引
+
+| v1 误判 | 次数 |
+|---|---|
+| `anger → anxiety` | 3 |
+| `helplessness → anxiety` | 2 |
+| `fear → anxiety` | 1 |
+
+v1 第一步的情绪词示例「我好焦虑／开心／难受／烦死了／有点慌」里
+**3 个指向负面、1 个指向焦虑、0 个指向 anger/fear/helplessness**；
+加上第二步 anxiety 那行写了 6 个触发词（其他类只有一句）→ 模型学会「默认焦虑」。
+但用户原话里其实**明说了**：「更烦躁」「想摔键盘」「更无力了」「只觉得害怕」。
+
+### 四、v2 的两个新失败（改过头的代价）
+
+- personality：删掉正面示例后，模型把「情绪克制」反向映射成
+  **`emotionally_stable`（输出 7 次）**，而该标签在训练集只占非空的 1.0%
+  —— 换了套错标签，`该空却填` 反而升到 9 条。
+- style：**`brief` 输出了 17 次**（20 条里 17 条），只命中 1 条。
+  根因是把 `colloquial/formal` 删掉后，模型退回到列表里最「客观」的长度标签当默认值。
+
+**教训：只要提示词里给了「整句 → 标签」的正面示例，模型就会照搬。
+填充分数低的维度应该给负面示例（把"不要填"的情形列出来），而不是正面示例。**
+
+## v3 是怎么修的
+
+1. **personality / interests 全部改成「默认输出 []」+ 只列负面情形**，去掉一切正面示例；
+   并点名禁止把「情绪克制」当成 `emotionally_stable`。
+2. **style 换成可判定的措辞信号**，按优先级排：
+   直接向助手提要求/下指令/划边界 → `direct`；
+   给因果、做对比 → `rational`；
+   夸张比喻、密集感叹 → `high_emotional_expression`；
+   ≤15 字 → `brief`；三段以上 → `detailed`。
+   并明确「不要用 colloquial/formal/indirect/humorous 当默认值」。
+   这一改把 `direct` 从 2 条提到 5 条（金标 direct 有 9 条），style 精确率从 0.22 提到 0.50。
+3. **情绪**：明确「anxiety 和 relaxed 都不是默认答案」，并补两条排除规则
+   「只是礼貌回应/下指令/陈述事实 → neutral」「对助手讽刺或拒绝 → anger」。
+   情绪从 0.45 提到 0.60（v1 那 6 条 `→ anxiety` 全修好，其中 2 条还多了 2 个正确）。
+
+## 待办
+
+- [ ] **全量 2354 条确认**（`--tag v3-full`，已 `setsid nohup` 挂在服务器后台；
+      注意 box 上同时有别人的 `mi300x-v4-full` 与 `train_sft`，GPU 共享会变慢）
+- [ ] 全量数字出来后更新本表，并把 `prompts/emotion_profile.md` 定稿
+- [ ] `prompts/response.md` 已由角色③交付；若要联合评测，
+      去掉 `--prompt-dir` 隔离参数即可（但那样结论不再是「只改了②」）
+
+## 复现命令（box 上）
+
+```bash
+cd /mnt/workspace/OGC
+# 裸基线
+python3 tools/eval_loop.py --tag smoke-official --limit 20 --inference-script official
+# 当前提示词的接线版（隔离目录，只含 emotion_profile）
+python3 tools/eval_loop.py --tag v3-smoke --limit 20 --inference-script wired \
+    --prompt-dir /mnt/workspace/OGC/runs/p02-only
+# 全量
+python3 tools/eval_loop.py --tag v3-full --inference-script wired \
+    --prompt-dir /mnt/workspace/OGC/runs/p02-only
+```
