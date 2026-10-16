@@ -330,6 +330,51 @@ def check_markdown_shape() -> list[tuple[str, bool, str]]:
         not mismatched,
         "三份文档检查通过" if not mismatched else f"位置：{mismatched}",
     ))
+    results.extend(check_doc_code_sync())
+    return results
+
+
+def check_doc_code_sync() -> list[tuple[str, bool, str]]:
+    """文档里那些**靠人手工维护**的清单，是否仍与代码一致。
+
+    根因观察：这一夜修的一堆"文档/脚本与事实不符"，源头大多是
+    **一个需要人记住去更新的常量**：
+    * Runbook 的守护表曾只列 7 个，而实际有 14 个；
+    * 起飞前检查脚本里写死的守护列表 + 写死的"自检 16 项"；
+    * 更正索引写"6 次更正"，而实际已 9 次。
+
+    把这些做成检查，比写"记得更新"有用。
+    """
+    results: list[tuple[str, bool, str]] = []
+
+    # 1) Runbook 的守护表必须覆盖 watchers/ 下的全部脚本
+    watcher_dir = TOOLS / "watchers"
+    if watcher_dir.is_dir():
+        scripts = sorted(p.name for p in watcher_dir.glob("role2-*.sh"))
+        runbook = (TOOLS / "RUNBOOK.md").read_text(encoding="utf-8")
+        missing = [name for name in scripts if name not in runbook]
+        results.append((
+            "Runbook 的守护表覆盖全部守护脚本",
+            not missing,
+            f"{len(scripts)} 个脚本全部在 Runbook 里" if not missing else f"Runbook 缺：{missing}",
+        ))
+
+    # 2) 更正索引声明的条数 == 实际行数
+    report = REPO_ROOT / "docs" / "reports" / "role2-emotion-profile-v1-v3.md"
+    if report.exists():
+        text = report.read_text(encoding="utf-8")
+        head = re.search(r"把 \*\*(\d+) 次\*\*更正集中列在这里", text)
+        if head:
+            declared = int(head.group(1))
+            # 索引表格：从"| # | 我最初在哪里"之后连续编号的行
+            block = text.split("| # | 我最初在哪里说了什么", 1)[-1].split("\n\n", 1)[0]
+            rows = len(re.findall(r"^\| \d+ \|", block, re.M))
+            results.append((
+                "更正索引声明的条数与实际行数一致",
+                declared == rows,
+                f"声明 {declared} 条 / 实际 {rows} 行" if declared == rows
+                else f"❌ 声明 {declared} 条，实际 {rows} 行",
+            ))
     return results
 
 
