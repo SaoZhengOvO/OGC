@@ -136,6 +136,13 @@ def main(argv: list[str] | None = None) -> int:
         action="store_true",
         help="看「第一步没命中触发词」的那一半样本金标以什么类为主（决定兜底该选谁）",
     )
+    parser.add_argument(
+        "--phrase-audit",
+        default=None,
+        help="审计任意一批短语：给出含这些短语的样本的金标分布（逗号分隔）。"
+             "用来检验提示词里的『排除规则』是否与真值一致，例如 "
+             "--phrase-audit \"先别给建议,就这样吧,谢谢你的建议\"",
+    )
     args = parser.parse_args(argv)
 
     # 用模板里的词表替换内置 RULES：避免手抄出错（见报告 §18.3）
@@ -198,6 +205,37 @@ def main(argv: list[str] | None = None) -> int:
     total = len(texts)
     gold_counter = Counter(gold.values())
     majority, majority_count = gold_counter.most_common(1)[0]
+
+    # --- 0a0) 短语审计：检验提示词里的「排除规则」是否与真值一致 ---
+    if args.phrase_audit:
+        phrases = [item.strip() for item in args.phrase_audit.split(",") if item.strip()]
+        print(f"审计 {len(phrases)} 个短语（全量 {total} 条真值）\n")
+        print(f"{'短语':<18}{'触发':>6}{'占全量':>9}  触发里的金标分布（前 5）")
+        print("-" * 88)
+        for phrase in phrases:
+            subset = [gold[key] for key, text in texts.items() if phrase in text]
+            if not subset:
+                print(f"{phrase:<18}{0:>6}{'—':>9}  （一条都没触发）")
+                continue
+            counter = Counter(subset)
+            top = "，".join(f"{emotion} {count}" for emotion, count in counter.most_common(5))
+            print(f"{phrase:<18}{len(subset):>6}{len(subset) / total:>9.4f}  {top}")
+
+        all_hit = [gold[key] for key, text in texts.items() if any(p in text for p in phrases)]
+        if all_hit:
+            counter = Counter(all_hit)
+            majority, majority_count = counter.most_common(1)[0]
+            print()
+            print(f"合起来触发 {len(all_hit)} 条；最多金标类 = {majority}"
+                  f"（{majority_count} 条 = {majority_count / len(all_hit):.4f}）")
+            print(f"{'金标情绪':<16}{'条数':>6}{'占触发':>10}")
+            for emotion, count in counter.most_common():
+                print(f"{emotion:<16}{count:>6}{count / len(all_hit):>10.4f}")
+            print()
+            print("读法：提示词里的排除规则如果写成 `这些 → 某一类`，")
+            print(f"      只有当那一类就是上面最多的类（{majority}）时才划算；")
+            print("      否则这条排除规则本身就在制造错误 —— 和 §十五 那 4 个坏词是同一类问题。")
+        return 0
 
     # --- 0a) 兜底分析：第一步没命中的样本以什么类为主 ---
     if args.fallback_analysis:
