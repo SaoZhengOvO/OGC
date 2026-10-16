@@ -45,6 +45,44 @@ body.append("> 产物目录 `runs/eval-v3-full/`（gitignore，不随仓库提�
 body.append("")
 body.append("## 一、v3 在 val 全量上的成绩")
 body.append("")
+body.append("### 第 0 条判据：格式健康度（先看这个）")
+body.append("")
+body.append("| 指标 | 值 | 判 |")
+body.append("|---|---|---|")
+_parse_fail = perf.get("parse_failure_count") or 0
+_n = perf.get("samples") or score.get("n_comparable") or 0
+_rate = _parse_fail / _n if _n else 0.0
+body.append(
+    f"| `parse_failure_count` | **{_parse_fail} / {_n} = {_rate:.2%}** | "
+    f"{'✅ 合格（≤2%）' if _rate <= 0.02 else '❌ **不合格**：它不是某一项差，而是一次打穿多条线'} |"
+)
+body.append(f"| `complete` | {perf.get('complete')} | 仅当跑满 `required_rounds`（{perf.get('required_rounds')}）时才有意义 |")
+if _parse_fail:
+    body.append(f"| 失败 id | {perf.get('parse_failure_ids')} | 逐个查：真实换行？字段名被当正文？ |")
+body.append("")
+body.append("> 解析失败时 `emotion_label` 变空串、`user_profile` 变全空 → **情绪与画像必定丢**；")
+body.append("> 回复文本会被 `recover_response_text` 抢救回来（可能混入格式残留）。详见报告 §19.2c–d。")
+body.append("")
+# 回复长度是"格式健康度"的另一半：报告 §19.2d 发现解析失败与长输出强相关
+_submission = full / "submission.jsonl"
+if _submission.exists():
+    _texts = [json.loads(line).get("response_text") or ""
+              for line in _submission.read_text(encoding="utf-8").splitlines() if line.strip()]
+    if _texts:
+        _lens = sorted(len(text) for text in _texts)
+        _mean = sum(_lens) / len(_lens)
+        _median = _lens[len(_lens) // 2]
+        _real_nl = sum(text.count("\n") for text in _texts)
+        _escaped = sum(text.count("\\n") for text in _texts)
+        body.append("| 回复长度指标 | 值 | 说明 |")
+        body.append("|---|---|---|")
+        body.append(f"| 长度（均 / 中位） | **{_mean:.0f} / {_median} 字** | 参考：②隔离跑 31–44 字 |")
+        body.append(f"| 真实换行总数 | **{_real_nl}** | 与解析失败强相关（§19.2d） |")
+        body.append(f"| 字面 `\\n` 转义总数 | **{_escaped}** | 若为 0，说明「分段写转义符」这条从未生效 |")
+        body.append("")
+body.append("")
+body.append("### 成绩")
+body.append("")
 body.append("| 指标 | 值 |")
 body.append("|---|---|")
 body.append(f"| 样本数 | {score['n_comparable']} |")
@@ -77,7 +115,7 @@ body.append("| 条件 | 结论 |")
 body.append("|---|---|")
 body.append("| 情绪 > 0.3190 且 画像 > 0.6283 | 相对零成本下限**站住了** |")
 body.append("| 其中一项不达标 | **如实报告未达标**，并说明是哪一维 |")
-body.append("| 与下限的差值为正但 `p ≥ 0.05` | 只能说「点估计更好」，**不能说"守住"** |")
+body.append("| 与下限的差值为正但 `p ≥ 0.05` | 只能说「点估计更好」，**不能说「守住」** |")
 body.append("")
 body.append("## 四、参考：其它口径")
 body.append("")

@@ -217,6 +217,16 @@ def check_new_tools() -> list[tuple[str, bool, str]]:
         ok,
         f"审计目录 {audit_dir.name}；占卡守护无撞车、目录无共用" if ok else out[-300:],
     ))
+
+    # 内联 Python 的语法 —— 这类错误只在守护触发时才炸。
+    # 本线真的踩到过：publish-results 里一个 ASCII 双引号截断了字符串，
+    # 而那个守护一直没触发，直到用假数据演练才发现（否则全量跑完交付文件不会生成）。
+    syntax_ok = "的内联 Python 全部语法正确" in out
+    results.append((
+        "watch_audit：守护内联 Python 语法正确",
+        syntax_ok,
+        "逐段校验通过" if syntax_ok else out[-300:],
+    ))
     return results
 
 
