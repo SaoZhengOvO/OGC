@@ -101,6 +101,37 @@ python _local/keepalive.py --interval 480     # 每 8 分钟一次极轻 SSH 探
 | 逐样本明细 / badcase | `runs/eval-v3-full/` | ❌ gitignore |
 | 九臂总表 | `runs/ALL-ARMS-COMPARISON.md` | ❌ gitignore |
 
+## ⏸ 如果会话在"轮次上限"处暂停（第 155 轮写入）
+
+本会话的自动续跑有**轮次预算**。SFT 结束前，box 时钟每轮只推进十几秒 ——
+按当前节奏，**预算可能在产物落地之前用尽**，会话会暂停。**这不是失败，链仍在跑。**
+
+### 暂停时要知道的事
+
+1. **链是自治的**：14 个守护都是服务器侧 `setsid nohup`，**不依赖本地会话**
+   （只依赖实例不被自动关机 → 所以**别关本地机器**，见上文"保活心跳"）。
+2. **产物会照常落盘**在 `/mnt/workspace/OGC/runs/`，并自动生成
+   `docs/reports/role2-full-val-results.md` —— **但不会自动提交到 git**，那一步要手动做。
+3. **恢复会话后，先跑这三条**：
+
+```bash
+bash /mnt/workspace/.team-ssh/role2-preflight.sh        # 8 项：链还在不在、卡位对不对
+ls /mnt/workspace/OGC/runs/eval-*/score.json \
+   /mnt/workspace/OGC/runs/eval-v3-full/performance_report.json \
+   /mnt/workspace/OGC/runs/FULL-COMPARISON.md \
+   /mnt/workspace/OGC/runs/ALL-ARMS-COMPARISON.md 2>/dev/null   # 产物到哪一步
+python3 tools/emotion_profile/assess_verdict.py         # 机械裁决（有产物才有输出）
+```
+
+4. **然后照"收尾清单"逐处更新报告与台账**，
+   并把 `docs/reports/role2-full-val-results.md` **显式 `git add` 后提交**。
+
+### 暂停期间不会发生的事（避免误判）
+
+* **不会有人替你提交产物** —— git 提交必须手动做；
+* **不会有人替你解读数字** —— `assess_verdict.py` 给机械判据，但**叙述要我写**；
+* 队列不会乱 —— 守护之间严格串行 + 并发闸门。
+
 ## 待队长拍板（三个 issue 都还没回复）
 
 | issue | 问题 | 现状 |
