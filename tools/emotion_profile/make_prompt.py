@@ -13,6 +13,11 @@
 
     python tools/emotion_profile/make_prompt.py            # 覆盖写 prompts/emotion_profile.md
     python tools/emotion_profile/make_prompt.py --check    # 只校验产物是否是最新的（CI 用）
+
+    # 用候选模板渲染到别处（做 A/B 时不让候选版污染已定稿的产物）
+    python tools/emotion_profile/make_prompt.py \
+        --template tools/emotion_profile/prompt_rules.v4.txt \
+        --out /tmp/v4.md
 """
 
 from __future__ import annotations
@@ -47,11 +52,12 @@ def strip_comments(text: str) -> str:
     return "\n".join(kept)
 
 
-def render() -> str:
-    """渲染最终提示词全文。"""
-    if not TEMPLATE.exists():
-        raise SystemExit(f"找不到模板 {TEMPLATE}")
-    rules = strip_comments(TEMPLATE.read_text(encoding="utf-8"))
+def render(template: Path | None = None) -> str:
+    """渲染最终提示词全文。`template` 可指向候选模板（默认用 prompt_rules.txt）。"""
+    source = template or TEMPLATE
+    if not source.exists():
+        raise SystemExit(f"找不到模板 {source}")
+    rules = strip_comments(source.read_text(encoding="utf-8"))
     if PLACEHOLDER not in rules:
         raise SystemExit(f"模板里没有占位符 {PLACEHOLDER}，拒绝生成")
 
@@ -82,9 +88,21 @@ def render() -> str:
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description="生成 prompts/emotion_profile.md")
     parser.add_argument("--check", action="store_true", help="只校验产物是否与模板一致，不写文件")
+    parser.add_argument("--template", default=None, help="改用候选模板（默认 prompt_rules.txt）")
+    parser.add_argument("--out", default=None, help="改写到别的路径（默认 prompts/emotion_profile.md）")
     args = parser.parse_args(argv)
 
-    text = render()
+    if args.check and (args.template or args.out):
+        raise SystemExit("--check 只能搭配默认模板与默认产物路径使用")
+
+    template = Path(args.template) if args.template else None
+    if template is not None and not template.is_absolute():
+        template = REPO_ROOT / template
+    target = Path(args.out) if args.out else TARGET
+    if not target.is_absolute():
+        target = REPO_ROOT / target
+
+    text = render(template)
     if args.check:
         current = TARGET.read_text(encoding="utf-8") if TARGET.exists() else ""
         if current != text:
@@ -93,10 +111,10 @@ def main(argv: list[str] | None = None) -> int:
         print(f"{TARGET} 是最新的（{len(text)} 字符）")
         return 0
 
-    TARGET.parent.mkdir(parents=True, exist_ok=True)
-    TARGET.write_text(text, encoding="utf-8", newline="\n")
+    target.parent.mkdir(parents=True, exist_ok=True)
+    target.write_text(text, encoding="utf-8", newline="\n")
     emo = len(gen_label_block.load_label_space()["emotions"])
-    print(f"已写入 {TARGET}（{len(text)} 字符，含 {emo} 类情绪与三维画像词表）")
+    print(f"已写入 {target}（{len(text)} 字符，含 {emo} 类情绪与三维画像词表）")
     return 0
 
 

@@ -234,3 +234,77 @@ python3 tools/eval_loop.py --tag v3-smoke --limit 20 --inference-script wired \
 python3 tools/eval_loop.py --tag v3-full --inference-script wired \
     --prompt-dir /mnt/workspace/OGC/runs/p02-only
 ```
+
+---
+
+# 第三轮：排队、参数注释化、v4 候选（2026-10-16 晚）
+
+## 1. 卡的排队（按 `runs/GPU-RULES.md`）
+
+队的规矩是「同时最多 2 个 GPU 任务」。我先前的 `v3-full` 是在这条规矩明确之前抢跑的，
+发现后**主动撤掉**（含子进程），改成排队：
+
+- `runs/.gpu-lock.d/role2-queued.lock`：排队登记
+- `runs/.gpu-lock.d/captain-sft.lock`、`unknown-v4-full.lock`：观测到的别人占用（非本人登记）
+- `runs/GPU-RULES.md`：这份文件原本不存在，由本线补写落地（内容来自队长的口头规约）
+- 排队器 `bash /mnt/workspace/.team-ssh/role2-queue.sh`：`setsid nohup` 挂后台，
+  等 `train_sft.py` 结束自动起全量，不用人盯
+- 后处理守护 `role2-postprocess.sh`：再等 `eval-v3-full/performance_report.json`，
+  跑完自动出 `samples.jsonl` / `report.json` / `badcase.md`（纯 CPU，不占卡）
+
+## 2. 提示词「参数注释化」
+
+队长要求「把为什么这么写留在文件里」。但 `prompts/emotion_profile.md` 是**原样拼进系统提示**的
+（`wiring.py:compose_system_prompt`），注释会污染提示词。解法：
+
+- 注释写在模板 `tools/emotion_profile/prompt_rules.txt` 里（`#` 开头）
+- `make_prompt.py` 新增 `strip_comments()` 剥离，并加护栏：产物里出现 `#` 开头的行就报错
+- **已核验：加注释前后产物 sha256 均为 `6bcd6515…`（逐字节不变）**，
+  所以排队中的全量跑量的仍是同一个 v3
+
+另外加了 `--template` / `--out`，让候选版本（如 v4）能渲染到别处，
+**不污染已定稿的 `prompts/emotion_profile.md`**。
+
+## 3. v4 候选（已就绪，等卡）
+
+数据指向的最大空间是 **style 召回**：
+
+| 维度 | v3 EMA | 剩余空间 |
+|---|---|---|
+| personality_traits | 0.6000 | 金标为空 12/20 → 填的风险大于收益，**本轮不动** |
+| interests | 0.6000 | 金标为空 13/20 → 同上，**不动** |
+| **style** | 0.3000 | **金标非空 16/20，v3 只命中 2 条、留空 12 条** ← 最大 |
+| 情绪 | 0.6000 | 错 8 条（gratitude/helplessness 被推给 neutral 各成模式） |
+
+**v4 只改一处**：v3 在 §二 开头写了「三个维度的默认输出都是空数组」，
+把 style 一起按住了（而 style 金标 80% 非空）。v4 把 style 从这句话里摘出来：
+
+```
+- 三个维度的**默认输出都是空数组 []**。只有命中下面的判据才填，拿不准一律留空。
++ personality_traits 与 interests 的**默认输出是空数组 []**；style 见下面单独的说明。
+
+- style：默认 []，但这一维值得填——…按顺序判断，命中哪条填哪条…
++ style：这一维**必须逐条对照下面的信号后作出判断**，它只看用户自己的措辞、不看情绪；
++        五条都不命中才留空。命中哪条填哪条，同时命中多条就都填：
+```
+
+**已核验 v3→v4 只差这 2 行**（`Compare-Object` 结果），personality/interests 判据一字未动。
+候选模板 `tools/emotion_profile/prompt_rules.v4.txt`，
+候选产物已放到 `/mnt/workspace/OGC/runs/p02-v4/emotion_profile.md`（**独立目录，不影响全量**）。
+
+跑法（等卡）：
+
+```bash
+python3 tools/eval_loop.py --tag v4-smoke --limit 20 \
+    --inference-script wired --prompt-dir /mnt/workspace/OGC/runs/p02-v4
+```
+
+验收判据（相对 v3 而不是相对裸基线）：style EMA > 0.3000 且
+emotion_acc 与 profile_acc 不掉。
+
+## 4. 本轮的其它交付
+
+- `docs/reports/role2-emotion-profile-v1-v3.md`：正式机制报告（新建，未改 ⑤B 的任何文件）
+- 提交：`2ab0c703`（v3 提示词 + v1 存档 + 台账）、
+  `8de2f522`（参数注释化 + `make_prompt.py` + 报告）
+- `python -m unittest discover -s tests` → **Ran 114 tests, OK**
