@@ -42,6 +42,17 @@ PREDICTIONS = [
     ("v3 全量画像 ≈ 打平下限 0.6283（±0.01 内算命中）", 0.6283, 0.01),
 ]
 
+#: 散落在别处、也必须一起核的预测（第 136 轮才发现，第 161 轮补进脚本）
+#: —— 埋在论证里的预测如果不登记，跑完就只会去对 §19.4 那张表而把它们忘掉。
+BURIED_PREDICTIONS = [
+    # (出处, 指标, 判据说明)
+    ("§14.3 后半句", "画像应**明显超过 E1 的 0.5615** —— 只打平下限不算违反，低于 0.5615 即被证伪"),
+    ("§16.3 表格", "情绪**大概率远低于 0.50**；**能否超过下限 0.3190 未知**（不设成败，只如实报告）"),
+]
+
+E1_EMOTION = 0.2464
+E1_PROFILE = 0.5615
+
 
 def load(tag: str) -> tuple[dict, dict] | None:
     run = REPO_ROOT / "runs" / f"eval-{tag}"
@@ -122,6 +133,18 @@ def main(argv: list[str] | None = None) -> int:
         hit = abs(value - predicted) <= tol
         print(f"  {'✅ 命中' if hit else '⚠️ 与预测不符'}：{name}")
         print(f"      预测 {predicted:.4f} / 实测 {value:.4f}（差 {value - predicted:+.4f}）")
+
+    print()
+    print("=== 散落在别处的两条预测（别漏）===")
+    profile_value = actual["2"]
+    print(f"  §14.3 后半句：画像应明显超过 E1 的 {E1_PROFILE:.4f}")
+    print(f"      实测画像 {profile_value:.4f} vs E1 {E1_PROFILE:.4f}（差 {profile_value - E1_PROFILE:+.4f}）"
+          f" → {'✅ 超过' if profile_value > E1_PROFILE else '❌ 低于 E1，**这条被证伪**'}")
+    emotion_value = actual["1"]
+    print(f"  §16.3 表格：情绪「大概率远低于 0.50；能否超过下限 0.3190 未知」")
+    print(f"      实测情绪 {emotion_value:.4f}（vs 0.5000 差 {emotion_value - 0.5:+.4f}；"
+          f"vs 下限 0.3190 差 {emotion_value - 0.3190:+.4f}）")
+    print("      —— 这条是「未知」型预测，**不判成败**，只如实报告。")
 
     print()
     print("=== 结论 ===")
