@@ -1,13 +1,13 @@
-# 角色② 进度快照 / 恢复指引
+﻿# 角色② 进度快照 / 恢复指引
 
-> 写于 2026-10-17 01:29（box 时间）。**用途**：万一实例被关机、或本地机器关掉导致会话中断，
+> 写于 2026-10-17 01:33（box 时间）。**用途**：万一实例被关机、或本地机器关掉导致会话中断，
 > 照这份文件就能知道"从哪儿继续"，不用重新推一遍。
 
 ## 一分钟看懂现在的状态
 
 | 项 | 状态 |
 |---|---|
-| **队长 SFT** | 跑到 **step 1600/2282**（约 5.17 秒/步）→ 预计 **02:27 结束** |
+| **队长 SFT** | 跑到 **step 1660/2282**（约 5.18 秒/步）→ 预计 **02:27 结束** |
 | **我的全量** | **还没开始** —— 排队器 `role2-queue.sh` 在等 SFT 结束（不抢卡） |
 | **我的切片链** | 还没开始 —— `role2-slice.sh` 在等 SFT 结束 |
 | **今晚的评测产物** | **0 个**（`runs/eval-v3-slice200/`、`runs/eval-v3-full/performance_report.json` 都不存在） |
@@ -21,10 +21,25 @@
 SFT 结束
  ├─ queue  清除旧产物 → 起 v3 全量（2354 条，②隔离）      ← 目标要的那个数字
  └─ slice  过并发闸门 → 起 v3/v4 切片（各 200 条）
- 然后依次：v5a → v6 → v7 → integration(②③旧) → v8pair → p03new(②③新)
+ 然后依次：v5a → v6 → v7 → integration(②③**现行**) → v8pair(②v8+③现行) → p03new(②③**旧**)
  全量跑完 → postprocess（samples/report/badcase）+ full-compare（配对显著性）
  之后 → publish-results（写仓库内交付文件）+ final-report（九臂总表）
 ```
+
+> ⚠️ **三个集成臂的输入必须是不同的文件**（第 122 轮踩过：两个臂用了同一份 prompt，
+> 会跑出"没有差异"的假 A/B）。现在的实际对照：
+>
+> | 臂 | 提示词来源 | sha256 前 8 |
+> |---|---|---|
+> | `integ-slice200` | `prompts/response.md`（③现行·强调版 `\n\n`） | `639ce8c4` |
+> | `v8+p03-slice200` | 同上（② 换成 v8） | `639ce8c4` |
+> | `p03new-slice200` | `runs/p03-old/response.md`（③旧·简述版 `\n\n`） | `f3769150` |
+>
+> 自检里有一条 `A/B 两臂的输入确实不同` 专门盯这个 —— 它会在哈希相同时
+> 直接报 **"这不是 A/B，是同一件事跑两遍"**。
+>
+> 另注：③ 在提交里说"定稿改为 v8"，但共享的 `prompts/response.md` 仍是 `639ce8c4`
+> （上一版）。所以集成臂测的是 ③ 的**上一版**，不是 v8。
 
 ## 恢复后怎么接着看
 
@@ -39,7 +54,7 @@ ls runs/eval-v3-slice200/score.json runs/eval-v3-full/performance_report.json \
 # 3) 按 §十九 判读表出机械裁决（这才是"守住验收门"的出处）
 python3 tools/emotion_profile/assess_verdict.py
 
-# 4) 不变量自检（28 项）
+# 4) 不变量自检（29 项）
 python3 tools/emotion_profile/selftest.py
 
 # 5) 守护的日志（谁在等什么、跑完没）
