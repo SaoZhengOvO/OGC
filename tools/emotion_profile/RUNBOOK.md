@@ -63,6 +63,31 @@ python3 tools/emotion_profile/make_prompt.py \
 mkdir -p runs/p02-only && cp prompts/emotion_profile.md runs/p02-only/
 ```
 
+### 这个机制本身已经实测过（别只看代码）
+
+`wiring.py:45` 在**导入时**读环境变量：
+
+```python
+PROMPT_DIR = Path(os.environ.get("PARTICIPANT_PROMPT_DIR") or str(PARTICIPANT_DIR / "prompts"))
+```
+
+所以 `PARTICIPANT_PROMPT_DIR` **必须在 import 之前设好**，导入后再设是不生效的
+（直接调 `compose_system_prompt()` 调试时会踩到这个坑）。
+
+实测拼接行为（造三个假目录，用带标记的假提示词探测）：
+
+| 目录内容 | 官方提示词 | `emotion_profile.md` | `response.md` |
+|---|---|---|---|
+| 空目录 | ✅ 位置 0 | ❌ | ❌ |
+| 只有 emotion | ✅ 位置 0 | ✅ 位置 32 | ❌ |
+| 两篇都有 | ✅ 位置 0 | ✅ 位置 32 | ✅ 位置 49 |
+
+**结论**：官方提示词永远在最前；只拼**实际存在**的文件；顺序固定为
+`official → emotion_profile → response`。
+这就是 `--prompt-dir` 能当控制变量用的依据 —— 隔离目录里放一篇就只生效一篇。
+
+复现脚本：`role2-wiring-drill.sh` + `role2-wiring-probe2.py`（在 `/mnt/workspace/.team-ssh/`）。
+
 产物哈希可以当控制变量的证据：
 
 ```bash
