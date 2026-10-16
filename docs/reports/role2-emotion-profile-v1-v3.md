@@ -1147,8 +1147,26 @@ v8 换成给一整个 JSON 骨架，是在补官方的缺口。**但不能指望
 > | 画像 3 维 | **丢** | 三维全 `[]`；但**若该维金标本来就空，反而仍算对** |
 > | 回复 BLEU/ROUGE | **⚠️ 部分丢** | 文本被抢救回来，但**混入格式残留** |
 >
-> `complete=False` 记的就是这件事。所以准确表述是：
-> **情绪与画像必定丢；回复是被污染的整段原文，而非丢弃。**
+> ✏️ **更正**：我先前写"`complete=False` 记的就是这件事" —— **这是错的**。
+> 读了 `run_inference.py:453` 才知道 `complete` 是这一个判断：
+>
+> ```python
+> if index <= config["performance_rounds"]:
+>     latencies.append(elapsed_ms)      # 只有前 N 条参与计时
+> ...
+> "complete": len(latencies) == config["performance_rounds"]
+> ```
+>
+> `performance_rounds` 在 `inference_config.json` 里是 **100**，
+> 所以**任何少于 100 条的跑 `complete` 都会是 `False`**：
+>
+> | tag | n | required_rounds | rounds | complete | 解析失败 |
+> |---|---|---|---|---|---|
+> | mi300x-v4-smoke | 20 | 100 | 20 | **False** | 2 |
+> | smoke-official | 20 | 100 | 20 | **False** | 0 |
+> | smoke-wired / v2 / v3 | 20 | 100 | 20 | **False** | 0 |
+>
+> **五个 smoke 全是 `False`，与解析失败无关。** `complete` 只在完整全量（≥100 条且跑满）时才有意义。
 
 > 🎯 **我提过一个"改抢救正则"的建议，量化之后撤回。**
 > `recover_response_text` 的正则 `r'"response_text"\s*:\s*"((?:\\.|[^"\\])*)'` 要求键**带引号**，
