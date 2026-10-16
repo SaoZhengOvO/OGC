@@ -400,4 +400,38 @@ role2-slice.sh        → v3 全量起来 → 跑 v3-slice200、v4-slice200
 role2-slice-report.sh → v4-slice200 出分 → 出 runs/SLICE-COMPARISON.md（下限/v3/v4）
 role2-slice-v5a.sh    → 同上之后再跑 v5a-slice200 → 出 runs/SLICE-COMPARISON-v5a.md
 role2-postprocess.sh  → v3 全量跑完 → 出 samples/report/badcase
+role2-full-compare.sh → v3 全量跑完 → 造下限 → 配对显著性 → runs/FULL-COMPARISON.md
+```
+
+## 9. 实例生存风险与保活（2026-10-16 夜）
+
+两份文档对自动关机的说法不一致，取更严的那条：
+
+| 文档 | 说法 |
+|---|---|
+| `docs/roles/TEAM-TASKS.md` | **自动关机 1 小时无操作** |
+| `docs/roles/COMPUTE.md` | 闲置即关；单次最长 10 小时 |
+
+**风险**：六个守护都是 `sleep` 循环，不产生 SSH/控制台活动。
+如果平台的"闲置"判据是「没有外部活动」而不是「GPU 有负载」，
+那么任何长任务都可能中途被关机 —— 包括队长的 SFT。
+
+**处置**：`_local/keepalive.py` 每 8 分钟对实例做一次极轻探测（只跑 `date` 与 `pgrep`），
+连续失败 3 次会报「实例可能已关机或隧道已断，请找队长重开」。
+已验证：`[23:47:40] 心跳 OK 23:47:40 | 1`（1 个 python3 = SFT）。
+
+**固有限制（如实记录）**：心跳依赖本地笔记本开着。
+服务器侧的长任务虽然都 `setsid nohup` 了，但如果本地先断电、
+且平台按「外部活动」判闲置，实例仍可能在任务中途被关。
+**夜里实例掉了要重新开机 + 跑 `bash /mnt/workspace/.team-ssh/frpc-keeper.sh &`。**
+
+**今晚时间账**：
+
+```
+开机 22:15:33        → 10 小时上限 ≈ 08:15
+SFT 2282 步（5.2s/步）→ ETA ~02:55
+v3 全量 1.6h         → ~04:35
+三档切片（第 2 卡位）  → ~03:15
+后处理 + 全量对比      → ~04:40
+余量                 ≈ 3.5 小时
 ```
