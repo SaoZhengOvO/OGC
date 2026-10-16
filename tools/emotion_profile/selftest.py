@@ -27,6 +27,7 @@
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import re
 import shutil
@@ -446,7 +447,33 @@ def check_thresholds() -> list[tuple[str, bool, str]]:
             "五个数独立重算全部吻合（差 < 5e-5）" if ok else out[-300:],
         ),
         *check_verdict_assessor(),
+        *check_ab_distinctness(),
     ]
+
+
+def check_ab_distinctness() -> list[tuple[str, bool, str]]:
+    """凡是要做 A/B 的臂，**输入文件的哈希必须真的不同**。
+
+    为什么单独查这一条：第 122 轮发现 `p03new` 与 `integration` 两个臂
+    **用的是同一份 response.md** —— 于是它们会跑出近似相同的结果，
+    而我会在报告里看到一个"没有差异"的 A/B，**误以为"③ 的修复没用"**，
+    实际上是**我根本没测到差异**。
+
+    "两个臂名字不同"最容易让人以为对照是成立的，所以这条必须机检。
+    （`runs/` 不进版本库，所以这个检查只在 box 上有意义。）
+    """
+    path_a = REPO_ROOT / "prompts" / "response.md"
+    path_b = REPO_ROOT / "runs" / "p03-old" / "response.md"
+    if not path_a.exists() or not path_b.exists():
+        return [("A/B 两臂的输入确实不同", True,
+                 f"缺文件（{'prompts/response.md' if not path_a.exists() else 'runs/p03-old/response.md'} 不在），跳过")]
+    digest_a = hashlib.sha256(path_a.read_bytes()).hexdigest()
+    digest_b = hashlib.sha256(path_b.read_bytes()).hexdigest()
+    if digest_a == digest_b:
+        return [("A/B 两臂的输入确实不同", False,
+                 f"❌ 两者哈希相同（{digest_a[:8]}）—— 这不是 A/B，是同一件事跑两遍")]
+    return [("A/B 两臂的输入确实不同", True,
+             f"③现行({digest_a[:8]}) ≠ ③旧({digest_b[:8]})")]
 
 
 def check_verdict_assessor() -> list[tuple[str, bool, str]]:
