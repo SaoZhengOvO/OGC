@@ -12,14 +12,20 @@ cd /mnt/workspace/OGC || exit 1
 LOG=runs/.gpu-queue-watcher.log
 say() { echo "[$(date '+%m-%d %H:%M:%S')] $*" | tee -a "$LOG"; }
 
-say "集成切片守护启动：等 runs/eval-v6-slice200/score.json"
+# ⚠️ 触发条件必须是 **v7** 而不是 v6。
+# 原来写的是等 v6 出分，但 v7 守护也在等 v6 —— 两个会同时启动，
+# 加上同时段还在跑的 v3 全量就是 3 个 GPU 任务，违反 runs/GPU-RULES.md 的「最多 2 个」。
+# 串到 v7 之后，整条链任意时刻最多 2 个 GPU 任务：
+#   卡位 A：v3 全量
+#   卡位 B：v3-slice → v4 → v5a → v6 → v7 → 集成（严格串行）
+say "集成切片守护启动：等 runs/eval-v7-slice200/score.json"
 
 for _ in $(seq 1 900); do
-    [ -f runs/eval-v6-slice200/score.json ] && break
+    [ -f runs/eval-v7-slice200/score.json ] && break
     sleep 30
 done
 
-if [ ! -f runs/eval-v6-slice200/score.json ]; then
+if [ ! -f runs/eval-v7-slice200/score.json ]; then
     say "集成切片守护超时"
     exit 1
 fi
