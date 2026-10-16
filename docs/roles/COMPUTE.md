@@ -31,11 +31,24 @@ ssh -p 30817 root@frp-rug.com
 ```
 密码：`OGC-amd-2026`
 
+**用户名必须是 `root`。** 这台上没有 `ubuntu` / `amd` / `user` 这些账号，用它们会直接 `Permission denied`。
+
 网关走 SakuraFrp 隧道（会员节点 `济南三线PLUS1`，端口固定，不会变）。网络不理想时可按运营商换域名，指向同一个隧道：
 
 - 电信 `dx.frp-rug.com:30817`
 - 移动 `yd.frp-rug.com:30817`
 - 联通 `lt.frp-rug.com:30817`
+
+### 一条命令连不上时，先看这两个闸门（2026-10-16 踩过）
+
+```
+# 闸门 1：root 能不能用密码登录（默认是 prohibit-password，= 禁止密码，跟密码对不对无关）
+/usr/sbin/sshd -T | grep -i permitrootlogin     # 要看到 permitrootlogin yes
+# 闸门 2：root 的密码位是不是锁死的（实例重建后 /etc/shadow 会被重置）
+passwd -S root                                   # 要看到 P（set），L 是 locked
+```
+
+两个都写进了 `bootstrap.sh`，正常开机自动恢复；只有在**手改过 sshd_config 或换过 sshd 进程**时才需要手动确认。
 
 ### Windows 上想少打字
 
@@ -75,15 +88,25 @@ pip install torch --index-url https://download.pytorch.org/whl/cu130
 
 **这是 ROCm 机器。** CUDA 版 torch 会把 ROCm 版顶掉，GPU 直接失效。`tools/bootstrap.py` 的 `--torch-index` 默认值恰好就是 `cu130`——**不要用它装环境**，环境已经全好了，一个 pip 都不用装。
 
-### 坑 2：单次最长 10 小时，会被自动关机
+### 坑 2：会被自动关机，重启后要跑一次 bootstrap
 
-实例 `AutoShutdown: true`，闲置即关。**被关机后隧道地址不变**，但实例里所有进程都没了。重新开机后先跑一次：
+实例 `AutoShutdown: true`，闲置即关。**容器文件系统是临时的**——重启后 `sshd`、`frpc`、root 密码、`authorized_keys` 全部消失，只有 NAS（`/mnt/workspace`）活下来。
+
+**重启后进来第一件事**（在魔搭网页终端里跑）：
 
 ```bash
-bash /mnt/workspace/.team-ssh/frpc-keeper.sh &
+bash /mnt/workspace/.team-ssh/bootstrap.sh
 ```
 
-（这个脚本在共享盘上，跟着 NAS 持久化，不会被实例回收。）
+它会把 sshd 装回来、起 frpc 隧道、恢复 root 密码、重建 `authorized_keys`。**隧道地址 `frp-rug.com:30817` 不变**，队友不用改命令。
+
+已经装了三重自动触发，正常情况下不用手动跑（但别忘了它存在）：
+
+| 触发点 | 位置 | 什么时候生效 |
+|---|---|---|
+| 人开网页终端 | `/etc/profile.d/99-ogc-bootstrap.sh` | 有人登进 DSW 终端就跑 |
+| Python 启动 | `/usr/local/lib/python3.12/dist-packages/ogc_boot.pth` | 有 python 进程起来就跑（**唯一被官方标 `commit_to_image: yes` 的持久路径**） |
+| 手动 | 上面那条命令 | 兜底 |
 
 ---
 
