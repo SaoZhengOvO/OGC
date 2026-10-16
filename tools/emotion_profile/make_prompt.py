@@ -31,11 +31,27 @@ sys.path.insert(0, str(REPO_ROOT / "tools"))
 import gen_label_block  # noqa: E402  (需要先修好 sys.path)
 
 
+def strip_comments(text: str) -> str:
+    """剥掉模板里以 `#` 开头的注释行。
+
+    为什么要有这一步：`prompts/emotion_profile.md` 是**原样拼进系统提示**的
+    （`deploy/participant/wiring.py:compose_system_prompt`），所以"为什么这么写"
+    这类注解不能留在这个文件里，否则会被模型当成规则读。
+    注解写在模板 `prompt_rules.txt` 里，由本函数剥离；这样源头留得住理由，产物保持干净。
+    """
+    kept: list[str] = []
+    for line in text.splitlines():
+        if line.lstrip().startswith("#"):
+            continue
+        kept.append(line)
+    return "\n".join(kept)
+
+
 def render() -> str:
     """渲染最终提示词全文。"""
     if not TEMPLATE.exists():
         raise SystemExit(f"找不到模板 {TEMPLATE}")
-    rules = TEMPLATE.read_text(encoding="utf-8")
+    rules = strip_comments(TEMPLATE.read_text(encoding="utf-8"))
     if PLACEHOLDER not in rules:
         raise SystemExit(f"模板里没有占位符 {PLACEHOLDER}，拒绝生成")
 
@@ -54,7 +70,13 @@ def render() -> str:
         if not line and collapsed and not collapsed[-1]:
             continue
         collapsed.append(line)
-    return "\n".join(collapsed).strip() + "\n"
+    rendered = "\n".join(collapsed).strip() + "\n"
+
+    # 护栏：产物里不许再出现注释标记，否则说明剥离逻辑漏了。
+    for number, line in enumerate(rendered.splitlines(), 1):
+        if line.lstrip().startswith("#"):
+            raise SystemExit(f"渲染结果第 {number} 行看起来是没剥干净的注释：{line[:40]!r}")
+    return rendered
 
 
 def main(argv: list[str] | None = None) -> int:
