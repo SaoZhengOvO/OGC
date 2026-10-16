@@ -79,6 +79,12 @@ def classify(text: str, fallback: str) -> str:
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description="纯关键词情绪分类器探针")
     parser.add_argument("--fallback", default="anxiety", choices=EMOTIONS, help="规则都不中时的兜底类")
+    parser.add_argument(
+        "--explain",
+        default=None,
+        choices=[emotion for emotion, _ in RULES],
+        help="只看某一个类的触发词：它会捞到哪些金标类的样本（用来判断这条规则是帮忙还是抢样本）",
+    )
     args = parser.parse_args(argv)
 
     references = read_jsonl(PROCESSED / "val_references.jsonl")
@@ -96,6 +102,48 @@ def main(argv: list[str] | None = None) -> int:
     total = len(texts)
     gold_counter = Counter(gold.values())
     majority, majority_count = gold_counter.most_common(1)[0]
+
+    # --- 0) 单类解释模式：这条触发词到底捞到了谁的样本 ---
+    if args.explain:
+        patterns = dict(RULES)[args.explain]
+        fired = {key: text for key, text in texts.items()
+                 if any(pattern in text for pattern in patterns)}
+        gold_of_fired = Counter(gold[key] for key in fired)
+        print(f"规则 `{args.explain}` 的触发词：{patterns}")
+        print(f"全量 {total} 条里触发了 {len(fired)} 条。这些条目的金标分布：\n")
+        print(f"{'金标情绪':<16}{'条数':>7}{'占触发比例':>12}   （该类全量条数）")
+        print("-" * 62)
+        for emotion, count in gold_of_fired.most_common():
+            print(f"{emotion:<16}{count:>7}{count / len(fired):>12.4f}   ({gold_counter.get(emotion, 0)})")
+        hit = gold_of_fired.get(args.explain, 0)
+        print()
+        print(f"触发里真正是 {args.explain} 的：{hit} / {len(fired)} = {hit / len(fired):.4f}（精确率）")
+        stolen = len(fired) - hit
+        print(f"被这条规则「抢走」的其它类样本：{stolen} 条")
+        if stolen:
+            top = [(emotion, count) for emotion, count in gold_of_fired.most_common() if emotion != args.explain][:5]
+            print(f"  抢得最多的：{top}")
+            print("  → 如果被抢的主要是更大的类（如 anxiety），把这条规则收窄通常对总体 Acc 有利；")
+            print("    如果被抢的是同样小的类，收窄的收益有限。")
+
+        # 逐词拆解：到底是哪一个词把方向带偏的
+        print()
+        print("  逐词拆解（同一类里，各触发词单独看）：")
+        print(f"  {'触发词':<10}{'触发':>6}{'真' + args.explain:>10}{'精确率':>9}  触发里最多的金标类")
+        print("  " + "-" * 66)
+        for pattern in patterns:
+            subset = {key: text for key, text in texts.items() if pattern in text}
+            if not subset:
+                print(f"  {pattern:<10}{0:>6}{'—':>10}{'—':>9}")
+                continue
+            subset_gold = Counter(gold[key] for key in subset)
+            subset_hit = subset_gold.get(args.explain, 0)
+            top_other = [(e, c) for e, c in subset_gold.most_common(3)]
+            print(f"  {pattern:<10}{len(subset):>6}{subset_hit:>10}{subset_hit / len(subset):>9.4f}  {top_other}")
+        print()
+        print("  读法：某个词如果触发量大、精确率低、且最多金标类不是本类，")
+        print("        把这个词移走（或移到它真正的多数类）通常是纯赚。")
+        return 0
 
     # --- 1) 纯关键词分类器的整体准确率 ---
     predicted = {key: classify(text, args.fallback) for key, text in texts.items()}
