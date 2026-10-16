@@ -448,7 +448,7 @@ python3 tools/eval_loop.py --tag v3-full \
 
 # 5) 复现后自验 —— 这两条命令是"可复用"的验收标准
 python3 tools/emotion_profile/selftest.py          # 不变量自检（含判读表 5 个阈值的独立复算）
-bash tools/emotion_profile/preflight_chain.sh      # 8 项起飞前检查（含"等待目标是否已存在"）
+bash tools/emotion_profile/preflight_chain.sh      # 起飞前检查（项数以运行输出为准）（含"等待目标是否已存在"）
 ```
 
 > **上面 5 步命令都实测过**：

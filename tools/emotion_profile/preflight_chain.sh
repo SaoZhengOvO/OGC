@@ -69,7 +69,7 @@ df -h /mnt/workspace | tail -1 | awk '{print "  NAS 可用: "$4" ("$5" 已用)"}
 echo "  卡上进程: $(ps -eo args | grep -c '[p]ython3 tools/train_sft') 个 train_sft"
 
 echo
-echo "=== ⑥ 自检（当前 21 项）==="
+echo "=== ⑥ 自检（项数以运行输出为准）==="
 python3 tools/emotion_profile/selftest.py 2>&1 | tail -2
 
 echo
@@ -78,18 +78,23 @@ echo "=== ⑦ 旗标（集成全量是否被批准）==="
 
 echo
 echo "=== ⑧ 每个守护等的文件现在是否已存在（存在 = 会立刻触发）==="
-echo "  为什么查：守护等的是"产物"，但**残留的旧产物**也满足条件 ——"
-echo "  那会让它在本次跑还没产出任何东西时就触发，拿半截结果算分，而且不报错。"
+echo "  只检查**正在运行的**守护 —— 一次性诊断脚本（跑完就退）也引用产物路径，"
+echo "  把它们算进来会出一堆假告警，反而淹没真正要看的东西。"
 premature=0
+checked=0
 for f in /mnt/workspace/.team-ssh/role2-*.sh; do
+    name=$(basename "$f")
+    # 只保留正在跑的守护
+    pgrep -f "[r]ole2-${name#role2-}" >/dev/null 2>&1 || continue
     target=$(grep -oE '\[\s*-f\s+[^] ]+\s*\]' "$f" 2>/dev/null | head -1 | sed 's/\[\s*-f\s*//; s/\s*\]//')
     case "$target" in
         ''|*'$'*|*'<路径>'*) continue ;;
     esac
+    checked=$((checked + 1))
     if [ -f "$target" ]; then
-        printf '  ⚠️ %-32s 等的 %s **已存在** → 会立刻触发\n' "$(basename "$f")" "$target"
+        printf '  ⚠️ %-32s 等的 %s **已存在** → 会立刻触发\n' "$name" "$target"
         premature=$((premature + 1))
     fi
 done
-[ "$premature" -eq 0 ] && echo "  ✅ 没有任何守护的等待目标已存在（都会等今晚的新产物）"
+[ "$premature" -eq 0 ] && echo "  ✅ 正在运行的 $checked 个守护，没有一个的等待目标已存在"
 

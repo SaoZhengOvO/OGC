@@ -189,7 +189,7 @@ python3 tools/eval_loop.py --tag baseline --inference-script official
 | `verify_thresholds.py` | 独立复算 §十九 判读表的 5 个阈值（不依赖 `evaluate.py`） |
 | `verify_metrics.py` | 独立重算一遍指标，与 `evaluate.py` 对拍 |
 | `assess_verdict.py` | **按 §十九 出机械裁决**（判据逐条 ✅/❌ + 预登记核对 + 结论措辞） |
-| `preflight_chain.sh` | 起飞前 8 项检查（守护实例数 / 并发 / 依赖 / 等待目标是否已存在…） |
+| `preflight_chain.sh` | 起飞前检查（项数以运行输出为准）（守护实例数 / 并发 / 依赖 / 等待目标是否已存在…） |
 | `watch_audit.py` | 守护链审计（等待条件撞车 / 路径一致 / 内联 Python 语法） |
 
 **造数据与提示词**
