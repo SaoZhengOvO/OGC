@@ -472,6 +472,7 @@ def check_thresholds() -> list[tuple[str, bool, str]]:
             "五个数独立重算全部吻合（差 < 5e-5）" if ok else out[-300:],
         ),
         *check_verdict_assessor(),
+        *check_verdict_table_sync(),
         *check_ab_distinctness(),
     ]
 
@@ -499,6 +500,52 @@ def check_ab_distinctness() -> list[tuple[str, bool, str]]:
                  f"❌ 两者哈希相同（{digest_a[:8]}）—— 这不是 A/B，是同一件事跑两遍")]
     return [("A/B 两臂的输入确实不同", True,
              f"③现行({digest_a[:8]}) ≠ ③旧({digest_b[:8]})")]
+
+
+def check_verdict_table_sync() -> list[tuple[str, bool, str]]:
+    """`assess_verdict.py` 的阈值必须与报告 §十九 判读表里写的一致。
+
+    这是"机械裁决"的地基：如果脚本里的阈值和文档里的表不一致，
+    那么交付时那句"守住验收门"就是**按没写在报告里的标准**判的 ——
+    而且**看不出来**（脚本照样输出一张漂亮的判据表）。
+
+    做法：两边都用正则抽出阈值，做集合比较。
+    """
+    report = REPO_ROOT / "docs" / "reports" / "role2-emotion-profile-v1-v3.md"
+    script = TOOLS / "assess_verdict.py"
+    if not report.exists() or not script.exists():
+        return [("裁决脚本阈值与判读表一致", True, "缺文件，跳过")]
+
+    # 报告里**判读表**的行形如：
+    #   | 1 | 情绪 Acc | **> 0.3190** | 一律答 anxiety 的下限 |
+    # 只取编号 1~5 的行 —— 全文里还有别的 `**> 0.XXXX**`（如 §19.3 的 E1 基线 0.2464/0.5615），
+    # 第一版没限定范围，于是把 E1 基线也当成了判据阈值，误报"只在文档里"。
+    doc_values = set()
+    for line in report.read_text(encoding="utf-8").splitlines():
+        if not line.startswith("| "):
+            continue
+        if not re.match(r"^\| \*?\*?[1-5]\*?\*? \|", line):
+            continue
+        doc_values.update(round(float(v), 4) for v in re.findall(r"\*\*> (0\.\d+)\*\*", line))
+    # 脚本 CRITERIA 里形如 `("1", "情绪 Acc > 0.3190", 0.3190, "gt", ...)`
+    # 同样只取编号 1~5：第 0 条（解析失败 ≤2%）在文档里写成"> 2%"，格式不同
+    code_values = {
+        round(float(match.group(2)), 4)
+        for match in re.finditer(r'^\s*\("([1-5])", "[^"]+", (0\.\d+),',
+                                 script.read_text(encoding="utf-8"), re.M)
+    }
+    if not doc_values or not code_values:
+        return [("裁决脚本阈值与判读表一致", True, f"抽取不到（文档 {len(doc_values)} 个 / 脚本 {len(code_values)} 个），跳过")]
+
+    only_doc = sorted(doc_values - code_values)
+    only_code = sorted(code_values - doc_values)
+    ok = not only_doc and not only_code
+    return [(
+        "裁决脚本阈值与判读表一致",
+        ok,
+        f"两边都是 {sorted(code_values)}" if ok
+        else f"❌ 只在文档里：{only_doc}；只在脚本里：{only_code}",
+    )]
 
 
 def check_verdict_assessor() -> list[tuple[str, bool, str]]:
