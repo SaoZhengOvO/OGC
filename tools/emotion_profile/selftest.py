@@ -375,6 +375,42 @@ def check_doc_code_sync() -> list[tuple[str, bool, str]]:
                 f"声明 {declared} 条 / 实际 {rows} 行" if declared == rows
                 else f"❌ 声明 {declared} 条，实际 {rows} 行",
             ))
+    results.extend(check_sample_schema())
+    return results
+
+
+def check_sample_schema() -> list[tuple[str, bool, str]]:
+    """逐样本文件的字段必须满足 compare_arms 的读取。
+
+    数据链是：`submission.jsonl` →（`cli.py eval --per-sample-out`）→ `samples.jsonl`
+    →（`compare_arms.py` 按 id 配对）→ 对比表。
+
+    如果有人在某一环改了字段名，**配对会静默少算或算错**而不是报错 ——
+    例如把 `emotion_pred` 写成 `emotion_label`，情绪空值率就会永远是 0。
+    所以这里从 compare_arms 的源码里**抽出它引用的字段**，再对照真实产物。
+    （不要凭印象列字段名 —— 我第一次就是这么干的，写出的 `emotion_ref`
+      根本不存在，差点得出一份假的"缺失字段"报告。）
+    """
+    results: list[tuple[str, bool, str]] = []
+    arm_src = (TOOLS / "compare_arms.py").read_text(encoding="utf-8")
+    used = set(re.findall(r'\.get\(\s*"([a-z_]+)"', arm_src))
+    used |= set(re.findall(r'\[\s*"([a-z_]+)"\s*\]', arm_src))
+    known = {"emotion_pred", "emotion_gold", "profile_pred", "profile_gold", "id"}
+    used &= known
+
+    candidates = sorted((REPO_ROOT / "runs").glob("eval-*/samples.jsonl"))
+    if not candidates or not used:
+        return [("逐样本 schema 满足 compare_arms", True, "没有可核的产物，跳过")]
+    sample = candidates[0]
+    rows = [json.loads(line) for line in sample.read_text(encoding="utf-8").splitlines() if line.strip()]
+    have = set(rows[0]) if rows else set()
+    missing = sorted(name for name in used if name not in have)
+    results.append((
+        "逐样本 schema 满足 compare_arms",
+        not missing,
+        f"{sample.parent.name}：compare_arms 需要的字段 {sorted(used)} 都在"
+        if not missing else f"缺 {missing}（会让配对静默算错）",
+    ))
     return results
 
 
