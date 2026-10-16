@@ -275,6 +275,61 @@ def check_docs_hygiene() -> list[tuple[str, bool, str]]:
         numbers == expect,
         f"1→{len(numbers)} 连续" if numbers == expect else f"实际：{numbers}",
     ))
+
+    # Markdown 结构：行内游离的 '>' 与表格列数
+    results.extend(check_markdown_shape())
+    return results
+
+
+def check_markdown_shape() -> list[tuple[str, bool, str]]:
+    """交付文档的 Markdown 结构体检。
+
+    两类本线真踩过的排版缺陷：
+    * **行中间的游离 `>`** —— 改行时拼接残留（原文是 `…点估计比较。> 补做配对检验…`），
+      渲染出来会多一个字面的 `>`。肉眼扫很容易漏。
+    * **表格列数与表头不一致** —— 该行会整行错位甚至不渲染。
+      注意数单元格时**必须排除转义竖线** `\\|`（表头里常写 `\\|偏差\\|`），
+      否则会把表头数成 7 列、数据行 5 列，报出并不存在的"不一致"。
+    """
+    results: list[tuple[str, bool, str]] = []
+    docs = [
+        REPO_ROOT / "docs" / "reports" / "role2-emotion-profile-v1-v3.md",
+        TOOLS / "LOG.md",
+        TOOLS / "RUNBOOK.md",
+    ]
+
+    stray = []
+    mismatched = []
+    for path in docs:
+        if not path.exists():
+            continue
+        lines = path.read_text(encoding="utf-8").splitlines()
+        table, header_cols = False, 0
+        for index, line in enumerate(lines, 1):
+            if line.lstrip().startswith(">"):
+                body = re.sub(r"^\s*>\s?", "", line)
+                if re.search(r"[^\s>]>[ \u3000]", body):
+                    stray.append(f"{path.name}:{index}")
+            if line.startswith("|") and line.rstrip().endswith("|"):
+                # 排除转义竖线 \| 后再数
+                cols = len(re.findall(r"(?<!\\)\|", line)) - 1
+                if not table:
+                    table, header_cols = True, cols
+                elif cols != header_cols and set(line) != set("|-: "):
+                    mismatched.append(f"{path.name}:{index}")
+            else:
+                table, header_cols = False, 0
+
+    results.append((
+        "文档无行内游离的 '>'",
+        not stray,
+        "三份文档检查通过" if not stray else f"位置：{stray}",
+    ))
+    results.append((
+        "文档表格列数与表头一致",
+        not mismatched,
+        "三份文档检查通过" if not mismatched else f"位置：{mismatched}",
+    ))
     return results
 
 
