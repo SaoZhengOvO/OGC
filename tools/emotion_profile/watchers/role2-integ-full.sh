@@ -45,7 +45,9 @@ if [ ! -f runs/eval-v3-full/performance_report.json ]; then
 fi
 
 # 组装提示词目录（只读复制；不改 prompts/）
-PAIR=runs/p02-v3+p03new
+# ⚠️ 用**独立的**目录名：role2-p03new.sh 用的是 runs/p02-v3+p03new，
+#    两个守护共用一个目录会形成不必要的竞争面（内容虽然相同，但不该这样写）。
+PAIR=runs/p02-v3+p03new-full
 mkdir -p "$PAIR"
 cp runs/p02-only/emotion_profile.md "$PAIR/emotion_profile.md"
 cp runs/p03-new/response.md "$PAIR/response.md"
@@ -65,10 +67,11 @@ EOF
 say "开始集成全量（2354 条）"
 # 注意：全量跑**不传 --source / --references**，用默认值（data/processed/val_*.jsonl = 全量 2354）。
 # 切片才需要显式指到 runs/slice200/。
+# 提示词目录必须与上面 PAIR 一致（曾写错成另一个守护的目录，已修）。
 python3 tools/eval_loop.py \
     --tag integ-full \
     --inference-script wired \
-    --prompt-dir /mnt/workspace/OGC/runs/p02-v3+p03new \
+    --prompt-dir /mnt/workspace/OGC/runs/p02-v3+p03new-full \
     >> runs/integ-full.log 2>&1
 say "集成全量结束（退出码 $?）"
 
