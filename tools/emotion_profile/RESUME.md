@@ -104,6 +104,28 @@ python _local/keepalive.py --interval 480     # 每 8 分钟一次极轻 SSH 探
 **本地一关，心跳就停** —— 若平台的"闲置"判据是看连接活动，实例可能在 1 小时内被关机，
 今晚所有进程一起没。文档措辞偏向"看连接"，但我无法安全验证（验证失败的代价就是丢数据）。
 
+### ⚠️ 关键：心跳必须**脱离会话**才算保命（第 210 轮补）
+
+原本心跳是"本会话的后台任务"——**会话一拆，它跟着死**。
+于是第 210 轮又起了一个**独立进程**（`Start-Process`，不属于会话的后台任务）：
+
+```powershell
+Start-Process -FilePath <python> -WindowStyle Hidden -ArgumentList `
+  '-u','_local\keepalive.py','--interval','480','--log','_local\keepalive_detached.log'
+```
+
+**现在有两个心跳**：会话内的（跟着会话走）+ **会话外的（会话结束也活着）** ← 后者才保命。
+
+**恢复会话后要确认它还在跑**：
+
+```powershell
+Get-Content _local\keepalive_detached.log -Tail 3    # 应有近期的「心跳 OK」
+```
+
+若不在跑，按上面那条命令重新起一个。**这是整晚唯一的单点故障** ——
+链是服务器侧自治的、产物会自动落盘、看板会自动更新，
+但如果没人给实例"续命"，它照样会在 1 小时后关机。
+
 ## 交付物在哪
 
 | 内容 | 位置 | 进仓库吗 |
