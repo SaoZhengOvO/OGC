@@ -34,12 +34,15 @@ WAIT_PATTERN = re.compile(r"\[\s*-f\s+([^\s\]]+)\s*\]")
 PAIR_PATTERN = re.compile(r"^PAIR=(\S+)", re.M)
 PROMPT_DIR_PATTERN = re.compile(r"--prompt-dir\s+(\S+)")
 
-#: 判定"这个脚本会不会占卡"：只有真正跑推理的才算
-GPU_MARKER = "eval_loop.py"
+#: 判定"这个脚本会不会占卡"：只有真正跑推理的才算。
+#: 必须带上 `python3` 前缀 —— 否则会把**锁文件内容里的 echo 字符串**
+#: （例如 `跑什么: tools/eval_loop.py --tag v3-full`）也算成调用，
+#: 于是一堆早已不跑的旧脚本被误判为"占卡守护"（审计噪声）。
+GPU_MARKER = "python3 tools/eval_loop.py"
 
 
 def uses_gpu(text: str) -> bool:
-    """脚本里有没有调用 eval_loop.py（那才会起推理、占卡）。
+    """脚本里有没有真正**调用** eval_loop.py（那才会起推理、占卡）。
 
     为什么必须区分：`role2-status.sh` / `role2-health.sh` 这类诊断脚本也会去
     `[ -f ... ]` 看各种产物，如果把它们也算进"等待者"，审计会淹没在噪声里。

@@ -20,13 +20,21 @@ done
 say "SFT 已结束"
 
 # 等排队器把 v3 全量起起来（最多等 5 分钟），确认它真的在跑
+started=0
 for _ in $(seq 1 30); do
     if pgrep -f "tag v3-full" >/dev/null 2>&1; then
         say "v3 全量已在跑，开始切片对比"
+        started=1
         break
     fi
     sleep 10
 done
+# 等不到也要往下走（不能永远阻塞），但**必须留下痕迹** ——
+# 否则"v3 全量没起来"这件事在日志里完全看不见，事后无从判断当时到底跑了几个任务。
+if [ "$started" -eq 0 ]; then
+    say "⚠️ 5 分钟内没看到 v3 全量在跑 —— 仍然继续跑切片（不阻塞），"
+    say "    但请事后确认排队器是否正常，这会影响『当时几个任务』的记载"
+fi
 
 cat > runs/.gpu-lock.d/role2-slice.lock <<EOF
 状态: 占用
