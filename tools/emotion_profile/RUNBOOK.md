@@ -325,8 +325,11 @@ setsid nohup python3 tools/eval_loop.py --tag ... > runs/x.log 2>&1 < /dev/null 
 
 ### 辅助脚本（诊断用，不占卡）
 
-`role2-health.sh`（守护/卡/进度一次看完）、
-`tools/emotion_profile/preflight_chain.sh`（起飞前七项检查）、
+`role2-status-board.sh` —— **链状态看板**：每 5 分钟把"跑到哪一步了"重写进
+`runs/CHAIN-STATUS.md`，**会话中断后不跑任何命令也能一眼看懂进度**。
+
+此外：`role2-health.sh`（守护/卡/进度一次看完）、
+`tools/emotion_profile/preflight_chain.sh`（起飞前 9 项检查）、
 `role2-watchers.sh`、`role2-slice-integrity.sh`、`role2-wiring-drill.sh` 等。
 
 脚本源码在 `tools/emotion_profile/watchers/`（可评审、可复现），
