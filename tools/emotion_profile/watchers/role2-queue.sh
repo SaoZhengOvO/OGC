@@ -22,6 +22,16 @@ RUNNING=$(pgrep -f "run_inference.py" | wc -l)
 say "当前 run_inference 进程数: $RUNNING"
 
 # 起全量（setsid + nohup：断开 SSH 也不受影响）
+#
+# ⚠️ 起跑前先清掉目标目录里的**上一轮产物**。
+# 原因：`run_inference.py:94-97` 的 prepare_result_dir 只 mkdir、**不清理旧文件**；
+# 而 postprocess / full-compare / integ-full 三个守护都是**等 performance_report.json**。
+# 若上一轮留下过这份文件，它们会在本次全量还没跑完时就触发、
+# 拿半截 submission.jsonl 算分 —— **而且不会报错**。
+# （今晚本就不存在该文件，这一句是给"重跑"上的保险。）
+rm -f runs/eval-v3-full/performance_report.json runs/eval-v3-full/score.json
+say "已清理 runs/eval-v3-full/ 的旧 performance_report.json / score.json（防守护提前触发）"
+
 setsid nohup python3 tools/eval_loop.py \
     --tag v3-full \
     --inference-script wired \
