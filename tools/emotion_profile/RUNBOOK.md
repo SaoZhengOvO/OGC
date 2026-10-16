@@ -1,5 +1,11 @@
 # 角色② 迭代 Runbook
 
+> **配套文件**：
+> * `LOG.md` —— 逐轮台账（踩坑与更正）
+> * `RESUME.md` —— **进度快照 / 恢复指引**（万一实例被关机或会话中断，照它继续）
+> * `../docs/reports/role2-emotion-profile-v1-v3.md` —— 正式报告
+> * `selftest.py` —— **29 项不变量自检**（改完任何东西先跑它）
+
 > 一条实验从「想到一个改动」到「能下结论」的完整流程。
 > 全部命令都在 `/mnt/workspace/OGC` 下执行（AMD MI300X 实例）。
 > 口语化的逐轮记录在 `LOG.md`，正式报告在 `docs/reports/role2-emotion-profile-v1-v3.md`。
