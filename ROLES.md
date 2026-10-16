@@ -24,7 +24,7 @@
 |---|---|---|---|---|
 | ① 部署与评测 | [`docs/roles/01-deploy-eval.md`](docs/roles/01-deploy-eval.md) | 推理性能 10 分 + 平台运行记录 10 分 | `deploy/`、`docs/platform-log/` | **队长** |
 | ② 提示词·情绪与画像 | [`docs/roles/02-prompt-emotion-profile.md`](docs/roles/02-prompt-emotion-profile.md) | 情感识别 25 分 + 用户画像 15 分 | `prompts/emotion_profile.md`、`tools/emotion_profile/` | 待认领 |
-| ③ 提示词·共情回复 | [`docs/roles/03-prompt-response.md`](docs/roles/03-prompt-response.md) | 回应质量 20 分 | `prompts/response.md`、`tools/response/` | 待认领 |
+| ③ 提示词·共情回复 | [`docs/roles/03-prompt-response.md`](docs/roles/03-prompt-response.md) | 回应质量 20 分 | `prompts/response.md`、`tools/response/` | `wangmoumou012` |
 | ④ RAG·语料与检索 | [`docs/roles/04-rag-corpus.md`](docs/roles/04-rag-corpus.md) | 记忆融合（赛题核心能力） | `rag/corpus/`、`rag/index/`、`rag/retrieve.py`、`rag/memory.py`、`tools/rag/` | 待认领 |
 | ⑤A RAG·融合 | [`docs/roles/05a-rag-fusion.md`](docs/roles/05a-rag-fusion.md) | 融合层（②③ 的分数要经它才落到模型上） | `rag/fusion.py` | 待认领 |
 | ⑤B 专家评审文档 | [`docs/roles/05b-reports.md`](docs/roles/05b-reports.md) | 方案完整性 10 分 + 代码规范性 10 分 | `docs/reports/` | **队长** |
