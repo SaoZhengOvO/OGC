@@ -30,6 +30,30 @@ for _ in $(seq 1 60); do
     sleep 30
 done
 
+# 后处理失败的话不能就这么崩 —— 那会级联成"交付文件永远不生成"：
+#   full-compare 崩 → 没有 FULL-COMPARISON.md → publish-results 永远等不到 → 交付文件丢失。
+# 而 publish 需要的分数（score.json / performance_report.json）其实是**已经有的**。
+# 所以这里写一份**说明性的占位对比**并正常退出，让下游能继续跑，
+# 同时在文件里写清"配对对比没做成、原因是什么"，不假装成功。
+if [ ! -f runs/eval-v3-full/samples.jsonl ]; then
+    say "⚠️ 等不到 runs/eval-v3-full/samples.jsonl（后处理可能失败）—— 写占位说明，不阻塞下游"
+    cat > runs/FULL-COMPARISON.md <<'EOF'
+# 全量配对显著性对比
+
+> ⚠️ **本次没有做成配对对比。**
+> 原因：`runs/eval-v3-full/samples.jsonl` 一直没有生成（该文件由 `role2-postprocess.sh` 产出）。
+> 常见原因是后处理守护失败或超时 —— 请查 `runs/.gpu-queue-watcher.log` 与 `runs/eval-v3-full/postprocess.log`。
+
+## 因此
+
+* `score.json` 里的**绝对分数是有效的**（它由 `src/cli.py eval` 直接从 `submission.jsonl` 算出）；
+* **但"相对零成本下限的配对显著性"这一项无法给出** —— 判读表第 6 条（p < 0.05）缺证据。
+* 这种情况下结论必须写成"**点估计对比**"，不能写成"守住门"。
+EOF
+    say "占位文件已写；下游 publish-results 可以继续"
+    exit 0
+fi
+
 say "全量已跑完，开始出「vs 下限」的配对对比"
 exec >> runs/.full-compare.log 2>&1
 date '+%m-%d %H:%M:%S'
