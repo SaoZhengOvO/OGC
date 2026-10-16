@@ -95,7 +95,7 @@ python _local/keepalive.py --interval 480     # 每 8 分钟一次极轻 SSH 探
 | 内容 | 位置 | 进仓库吗 |
 |---|---|---|
 | 机制报告（87.7KB，含更正索引/导读/判读表/预登记） | `docs/reports/role2-emotion-profile-v1-v3.md` | ✅ |
-| 台账（§1–§29） | `tools/emotion_profile/LOG.md` | ✅ |
+| 台账（§1–§30） | `tools/emotion_profile/LOG.md` | ✅ |
 | Runbook（守护表 14/14、工具表 19/19） | `tools/emotion_profile/RUNBOOK.md` | ✅ |
 | **全量数字（自动生成）** | `docs/reports/role2-full-val-results.md` | ✅（跑完才有） |
 | 逐样本明细 / badcase | `runs/eval-v3-full/` | ❌ gitignore |
