@@ -227,6 +227,54 @@ def check_new_tools() -> list[tuple[str, bool, str]]:
         syntax_ok,
         "逐段校验通过" if syntax_ok else out[-300:],
     ))
+    results.extend(check_docs_hygiene())
+    return results
+
+
+def check_docs_hygiene() -> list[tuple[str, bool, str]]:
+    """交付文档的"静默退化"检查：行尾与章节顺序。
+
+    这两项都是本线真踩过的坑：
+    * **行尾** —— 用脚本重写文件时，Windows 上 `write_text` 默认把 `\\n` 转成 `\\r\\n`，
+      整个文件的行尾被改写，产生无意义的全文 diff。**只看字节数才会发现**
+      （83810 → 85344，差值恰好等于行数）。
+    * **章节顺序** —— 往报告中间插一节时锚点选错，会让"第二十章讲一半跳到第二十一章"。
+      **只看内容看不出来**，要按标题抽出编号序列才发现。
+    """
+    results: list[tuple[str, bool, str]] = []
+
+    # 行尾：受版本控制的文本文件必须全是 LF
+    exts = (".md", ".py", ".sh", ".txt")
+    offenders = []
+    checked = 0
+    for path in REPO_ROOT.rglob("*"):
+        if not path.is_file() or path.suffix not in exts:
+            continue
+        if "runs" in path.parts:  # runs/ 是 gitignore 的临时产物，不参与
+            continue
+        checked += 1
+        if b"\r\n" in path.read_bytes():
+            offenders.append(path.name)
+    results.append((
+        "受控文本文件全部是 LF 行尾",
+        not offenders,
+        f"{checked} 个文件检查通过" if not offenders else f"带 CRLF：{offenders}",
+    ))
+
+    # 章节顺序：LOG.md 的一级章节编号必须连续
+    log = REPO_ROOT / "tools" / "emotion_profile" / "LOG.md"
+    numbers = []
+    for line in log.read_text(encoding="utf-8").splitlines():
+        if line.startswith("## ") and line[3:4].isdigit():
+            head = line[3:].split(".", 1)[0]
+            if head.isdigit():
+                numbers.append(int(head))
+    expect = list(range(1, len(numbers) + 1))
+    results.append((
+        "LOG.md 章节编号连续无重复",
+        numbers == expect,
+        f"1→{len(numbers)} 连续" if numbers == expect else f"实际：{numbers}",
+    ))
     return results
 
 
