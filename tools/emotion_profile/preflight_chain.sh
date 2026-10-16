@@ -21,8 +21,18 @@ cd /mnt/workspace/OGC || exit 1
 echo "############ 全链起飞前检查 $(date '+%m-%d %H:%M:%S') ############"
 echo
 
-echo "=== ① 14 个守护是否都活着（每个应恰好 1 个实例）==="
-for s in queue slice slice-report slice-v5a slice-v6 slice-v7 integration v8pair p03new integ-full postprocess full-compare publish-results; do
+echo "=== ① 守护是否都活着（每个应恰好 1 个实例）==="
+# 列表**从仓库的 watchers/ 自动取**，不再写死。
+# 写死过一次，加了 final-report 之后这里还写着 14 个、循环里也没它 ——
+# 于是"检查过了"给了虚假的安心。权威集合就是 tools/emotion_profile/watchers/*.sh。
+if [ -d tools/emotion_profile/watchers ]; then
+    WATCHERS=$(cd tools/emotion_profile/watchers && ls -1 role2-*.sh 2>/dev/null | sed 's/^role2-//; s/\.sh$//' | tr '\n' ' ')
+    echo "  （守护列表取自 tools/emotion_profile/watchers/，共 $(echo $WATCHERS | wc -w) 个）"
+else
+    WATCHERS="queue slice slice-report slice-v5a slice-v6 slice-v7 integration v8pair p03new integ-full final-report postprocess full-compare publish-results"
+    echo "  ⚠️ 仓库 watchers/ 不在，退回写死的列表（$(echo $WATCHERS | wc -w) 个）"
+fi
+for s in $WATCHERS; do
     n=$(ps -eo args | grep -c "[r]ole2-$s\.sh")
     [ "$n" -eq 1 ] && printf '  %-18s ✅\n' "$s" || printf '  %-18s ⚠️ 实例数 %s\n' "$s" "$n"
 done
@@ -51,7 +61,7 @@ df -h /mnt/workspace | tail -1 | awk '{print "  NAS 可用: "$4" ("$5" 已用)"}
 echo "  卡上进程: $(ps -eo args | grep -c '[p]ython3 tools/train_sft') 个 train_sft"
 
 echo
-echo "=== ⑥ 自检 16 项 ==="
+echo "=== ⑥ 自检（当前 21 项）==="
 python3 tools/emotion_profile/selftest.py 2>&1 | tail -2
 
 echo
