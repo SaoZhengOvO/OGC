@@ -131,6 +131,11 @@ def main(argv: list[str] | None = None) -> int:
         default=None,
         help="从提示词模板里读词表（不手抄）。可给多个用逗号分隔，会逐个跑并对比准确率",
     )
+    parser.add_argument(
+        "--fallback-analysis",
+        action="store_true",
+        help="看「第一步没命中触发词」的那一半样本金标以什么类为主（决定兜底该选谁）",
+    )
     args = parser.parse_args(argv)
 
     # 用模板里的词表替换内置 RULES：避免手抄出错（见报告 §18.3）
@@ -193,6 +198,39 @@ def main(argv: list[str] | None = None) -> int:
     total = len(texts)
     gold_counter = Counter(gold.values())
     majority, majority_count = gold_counter.most_common(1)[0]
+
+    # --- 0a) 兜底分析：第一步没命中的样本以什么类为主 ---
+    if args.fallback_analysis:
+        no_trigger = {}
+        for key, text in texts.items():
+            if not any(pattern in text for _emotion, patterns in RULES for pattern in patterns):
+                no_trigger[key] = gold[key]
+        with_trigger = {key: value for key, value in gold.items() if key not in no_trigger}
+
+        print(f"全量 {total} 条，按第一步触发词分成两半：\n")
+        for label, subset in (("有触发词", with_trigger), ("无触发词", no_trigger)):
+            counter = Counter(subset.values())
+            print(f"--- {label}：{len(subset)} 条（{len(subset) / total:.4f}）---")
+            print(f"    {'情绪':<16}{'条数':>6}{'占比':>10}{'占全量':>10}")
+            for emotion in EMOTIONS:
+                count = counter.get(emotion, 0)
+                if count:
+                    print(f"    {emotion:<16}{count:>6}{count / len(subset):>10.4f}{count / total:>10.4f}")
+            print()
+
+        no_trigger_counter = Counter(no_trigger.values())
+        best_no, best_no_count = no_trigger_counter.most_common(1)[0]
+        overall_best, overall_count = gold_counter.most_common(1)[0]
+        print(f"全量最多的类：{overall_best}（{overall_count} 条 = {overall_count / total:.4f}）")
+        print(f"无触发词那半最多的类：{best_no}（{best_no_count} 条 = {best_no_count / len(no_trigger):.4f}）")
+        print()
+        print(f"如果兜底用 {best_no}，在这 {len(no_trigger)} 条上能对 {best_no_count} 条；")
+        print(f"如果兜底用 {args.fallback}，在这 {len(no_trigger)} 条上能对 "
+              f"{no_trigger_counter.get(args.fallback, 0)} 条。")
+        print()
+        print("读法：这决定了提示词里「以上都不符合时用哪一类」那一行该怎么写。")
+        print("      注意真实模型还会用情境判断，兜底只是它最后的退路，不是全部。")
+        return 0
 
     # --- 0b) 全量审计：找出方向反了的触发词 ---
     if args.audit:
