@@ -248,21 +248,45 @@ while pgrep -f "<前一个任务的特征串>" >/dev/null; do sleep 60; done
 setsid nohup python3 tools/eval_loop.py --tag ... > runs/x.log 2>&1 < /dev/null &
 ```
 
-本线已挂在共享盘上的守护（`/mnt/workspace/.team-ssh/`，不依赖任何人的笔记本）：
+本线已挂在共享盘上的守护（**14 个**，`/mnt/workspace/.team-ssh/`，不依赖任何人的笔记本）：
 
-| 脚本 | 触发条件 | 干什么 |
-|---|---|---|
-| `role2-queue.sh` | `train_sft.py` 结束 | 起 v3 全量 |
-| `role2-slice.sh` | v3 全量在跑 | 跑 v3-slice200、v4-slice200 |
-| `role2-slice-report.sh` | v4-slice200 出分 | 出 `runs/SLICE-COMPARISON.md` |
-| `role2-slice-v5a.sh` | 同上 | 跑 v5a-slice200，出 `runs/SLICE-COMPARISON-v5a.md` |
-| `role2-postprocess.sh` | v3 全量跑完 | 出 `samples/report/badcase` |
-| `role2-full-compare.sh` | v3 全量跑完 | 造零成本下限 → **配对显著性对比** → `runs/FULL-COMPARISON.md` |
-| `role2-publish-results.sh` | 全量对比就绪 | 把数字写成**仓库内**的 `docs/reports/role2-full-val-results.md` |
+### 卡位 A：全量链路
+
+| 脚本 | 触发条件 | 干什么 | 占卡 |
+|---|---|---|---|
+| `role2-queue.sh` | `train_sft.py` 结束 | 起 v3 全量（2354 条） | ✅ |
+| `role2-postprocess.sh` | v3 全量跑完 | 出 `samples.jsonl` / `report.json` / `badcase.md` | ❌ |
+| `role2-full-compare.sh` | v3 全量跑完 | 造零成本下限 → **配对显著性对比** → `runs/FULL-COMPARISON.md` | ❌ |
+| `role2-publish-results.sh` | `FULL-COMPARISON.md` 就绪 | 写成**仓库内**的 `docs/reports/role2-full-val-results.md`（含第 0 条判据：解析失败率 + 回复长度） | ❌ |
+| `role2-integ-full.sh` | **旗标** `runs/.go-integrated-full` + v3 全量结束 | 集成全量（②v3 + ③新版）。**门控**：不 touch 旗标就永远不跑、不占卡 | ✅ |
+
+### 卡位 B：切片链路（严格串行，同一时刻只有 1 个）
+
+| 脚本 | 触发条件 | 干什么 | 占卡 |
+|---|---|---|---|
+| `role2-slice.sh` | v3 全量在跑 | 跑 v3-slice200、v4-slice200 | ✅ |
+| `role2-slice-report.sh` | v4-slice200 出分 | 出 `runs/SLICE-COMPARISON.md`（下限/v3/v4） | ❌ |
+| `role2-slice-v5a.sh` | v4-slice200 出分 | 跑 v5a-slice200（修「优先级」） | ✅ |
+| `role2-slice-v6.sh` | v5a 出分 | 跑 v6-slice200（校准触发词表） | ✅ |
+| `role2-slice-v7.sh` | v6 出分 | 跑 v7-slice200（补第二步通路） | ✅ |
+| `role2-integration.sh` | v7 出分 | 跑集成切片（②v3 + ③**旧版**） | ✅ |
+| `role2-v8pair.sh` | 集成出分 | 跑 ②v8 + ③旧版，并打印**解析失败率对照** | ✅ |
+| `role2-p03new.sh` | v8pair 出分 | 跑 ②v3 + ③**新版**（= 量出 ③ 这次修复值多少） | ✅ |
+| `role2-final-report.sh` | p03new 出分 | **九个臂并排**总表 → `runs/ALL-ARMS-COMPARISON.md` | ❌ |
+
+> **并发性质**：卡位 A 只有 1 个任务；卡位 B 是一条严格串行的链。
+> 所以任意时刻 GPU 任务 ≤ 2 ✅ —— 用 `watch_audit.py` 可以机检这一点
+> （它只看**真正调用 `python3 tools/eval_loop.py`** 的脚本，诊断脚本不参与判定）。
+
+### 辅助脚本（诊断用，不占卡）
+
+`role2-health.sh`（守护/卡/进度一次看完）、
+`tools/emotion_profile/preflight_chain.sh`（起飞前七项检查）、
+`role2-watchers.sh`、`role2-slice-integrity.sh`、`role2-wiring-drill.sh` 等。
 
 脚本源码在 `tools/emotion_profile/watchers/`（可评审、可复现），
 部署位置是 `/mnt/workspace/.team-ssh/`（共享 NAS，不依赖任何人的笔记本）。
-改完源码记得重新 `put` 到 NAS 再启动。
+改完源码记得重新 `put` 到 NAS 再启动 —— 并用 `watch_audit.py` 复核一遍。
 
 > 最后一个解决了「`runs/` 被 gitignore，数字进不了版本库」的缺口：
 > 目标是「交付全量确认数字」，就必须有**可提交的文件**承载它。
