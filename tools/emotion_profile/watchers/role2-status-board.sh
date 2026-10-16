@@ -19,11 +19,16 @@ for _ in $(seq 1 200); do   # 最多跑约 16 小时
         echo
         echo '| 项 | 状态 |'
         echo '|---|---|'
-        if pgrep -f '[t]rain_sft' >/dev/null 2>&1; then
+        if pgrep -f '^python3 tools/train_sft' >/dev/null 2>&1; then
             echo "| 队长 SFT | **仍在跑** —— $(tail -1 runs/sft-v1/train.log.jsonl 2>/dev/null | grep -oE '"step": [0-9]+' | head -1) |"
         else
             echo "| 队长 SFT | 已结束 |"
         fi
+        # ⚠️ 判据必须**行首锚定** `^python3 tools/train_sft`，不能用裸的 `[t]rain_sft`：
+        # 队长的 `bash -c` 包装进程（PID 7789）命令行里也含 train_sft，且训练结束后仍然存活
+        # → 裸判据会让看板**永远显示"仍在跑"**，而看板正是会话中断后最主要的状态来源
+        #   ⇒ 会误导恢复的人干等。（与 role2-queue.sh / role2-slice.sh 同一个坑，见 LOG §29）
+        # 第 231 轮由起飞前检查第 ⑨ 项抓出。
         if pgrep -f '[e]val_loop.py' >/dev/null 2>&1; then
             echo "| 我的链 | **在跑** |"
         else
