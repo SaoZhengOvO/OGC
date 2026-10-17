@@ -129,7 +129,9 @@ COPY rag/ /root/rag/
 
 # 自检脚本
 COPY offline_check.sh /opt/offline_check.sh
-RUN chmod +x /root/participant/start.sh /opt/offline_check.sh 2>/dev/null || true
+# 不吞 stderr、不跟 `|| true`：这两个脚本是镜像里唯一的可执行入口，chmod 失败说明
+# 前面的 COPY 就已经不对了，想在构建期炸，不想等平台启动时才报 Permission denied。
+RUN chmod +x /root/participant/start.sh /opt/offline_check.sh
 
 # 专家评审材料。官方硬性要求（GivenData/README.md:33-36）：技术方案、实验设计、报告、
 # 平台运行记录要「打包，放到提交的镜像里，存放路径为 /root 下，命名为

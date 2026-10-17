@@ -125,6 +125,43 @@ def write_jsonl(path: Path, rows) -> int:
     return count
 
 
+def dedupe_submission(path: Path) -> dict:
+    """按 id 去重（保留最后一次出现），原地重写。
+
+    为什么要有这一步：`run_inference.py` 是「先截断、再逐条追加」，两个进程同时往
+    同一个 submission.jsonl 写时会交错。2026-10-16 那次就写出了 2545 行 / 2354 个
+    唯一 id，其中 164 个 id 的重复行内容还不一样；情绪分当次是 0.1619，而干净重跑
+    是 0.4146。`src/cli.py validate` 只查 schema，重复 id 完全合法，查不出来。
+
+    保留最后一次而不是第一次：追加写时后写的行才是完整的那条（先写的那条可能被
+    另一个进程截断在半截）。
+    """
+    stats = {"rows_total": 0, "unique_ids": 0, "duplicates": 0, "conflicting": 0}
+    if not path.exists():
+        return stats
+
+    latest: dict[str, dict] = {}
+    order: list[str] = []
+    for row in read_jsonl(path):
+        stats["rows_total"] += 1
+        key = str(row.get("id"))
+        if key in latest:
+            stats["duplicates"] += 1
+            if latest[key] != row:
+                stats["conflicting"] += 1
+        else:
+            order.append(key)
+        latest[key] = row
+    stats["unique_ids"] = len(latest)
+
+    if stats["duplicates"]:
+        # 先写 .dedupe.bak 再原子替换：万一去重逻辑有 bug，原始文件还能捞回来。
+        backup = path.with_suffix(path.suffix + ".dedupe.bak")
+        backup.write_bytes(path.read_bytes())
+        write_jsonl(path, (latest[key] for key in order))
+    return stats
+
+
 def resolve_repo_path(value: str | Path) -> Path:
     """绝对路径原样，相对路径以**仓库根**为基准（不是当前目录）。"""
     path = Path(str(value)).expanduser()
@@ -502,6 +539,19 @@ def main(argv=None) -> int:
                 f"提交格式校验失败（退出码 {validate_code}），已中止打分。\n"
                 f"  确认只是想留个分数、不在乎格式的话，加 --skip-validate 显式绕过。"
             )
+
+    # 重复 id 会让同一个样本被算两次，指标看着正常其实分母是错的。
+    # 真实发生过：两个 run_inference 并发跑同一个输出目录，追加写把 2545 行写成
+    # 2354 个 id，情绪分从 0.41 掉到 0.16，而 validate 只查 schema 查不出来。
+    deduped = dedupe_submission(submission)
+    if deduped["duplicates"]:
+        print(
+            "[去重] {} 行里 {} 个重复 id（保留最后一次），唯一 id {} 个".format(
+                deduped["rows_total"], deduped["duplicates"], deduped["unique_ids"]
+            )
+        )
+        if deduped["conflicting"]:
+            print(f"       其中 {deduped['conflicting']} 个 id 的重复行内容不一致 —— 并发写的典型症状。")
 
     print("[4/4] 本地打分")
     references_path = Path(args.references).resolve()
