@@ -288,8 +288,8 @@ v8 相对 v4 **唯一改动**是把"绝对不允许换行"改成
 
 按 ② 的方法论（`tools/emotion_profile/make_eval_slice.py`），
 已生成 **200 条等距切片**（步长 11.77，对位置无偏；与全量最大逐维偏差仅 0.0024），
-正在跑 v4 vs v8 的隔离对照（`--prompt-dir runs/prompt-v4` vs `runs/prompt-v8`，
-两个目录都含逐字节一致的 `emotion_profile.md`）。
+正在跑 v4 vs v8 的隔离对照（`--prompt-dir runs/prompt-v4` vs `runs/prompt-v8`；
+两个目录里的 `emotion_profile.md` 均为 6330 B / MD5 `EEA5D42F8732D91B95F076945F4C454C`，同一版本）。
 
 **本节结论待切片结果替换，当前只作为"方向性证据"。**
 
@@ -330,3 +330,18 @@ ROUGE-L 在三个切片上几乎相同（差 <1%）；BLEU-4 有 0.0034→0.0058
 2. **隔离目录里必须同时放 `emotion_profile.md`**。`wiring.py:50` 的
    `PROMPT_BLOCKS = ("emotion_profile", "response")` 是**从同一个 `prompt_dir` 读两个块**的；
    只放 `response.md` 会让那一臂悄悄丢掉 ② 的提示词，测到的不是同一个系统。
+---
+
+## 十一、更正：提示词目录的「同版本」必须逐臂核对哈希
+
+后续 n=300 实验中出过一次隔离失误，记录在此以免复用错误结论：
+
+- v8 / v9s / v9k / v9sk / v9s2 / v9sk2 / v9s3 七臂的 `emotion_profile.md` 是 **6330 B / MD5 `EEA5D42F8732D91B95F076945F4C454C`**（旧版）；
+- **v9s4 / v9s5 两臂混入了 7503 B / MD5 `C98B2F526320AE5149D81340F52BB38B`**（② 的新版画像提示词，提交 `00fae71`）。
+
+因此 **v9s4 / v9s5 的画像与空回复数字是双变量结果，不能与其余七臂并排比较**，
+也不能把它们的画像/情绪变化归因给 ③ 的 `response.md` 改动。
+「v9s4 把空回复压到 0（0/300）」因此**不能作为 ③ 达成空回复 0 的证据**。
+
+**教训**：`--prompt-dir` 隔离目录里每一个非本线文件都要**逐臂记录哈希**；
+只保证「目录里有这个文件」不够，版本漂移会让 A/B 变成双变量。

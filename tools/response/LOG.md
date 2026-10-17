@@ -632,7 +632,8 @@ PID 45050  python3 tools/eval_loop.py --tag mi300x-v8-full
 
 - 切片：`runs/slice300/`（`tools/emotion_profile/make_eval_slice.py --size 300`，步长 7.85，对位置无偏；
   与全量最大逐维偏差 personality 0.0148 / interests 0.0023 / style 0.0026）。
-- 每臂一个隔离提示词目录 `runs/prompt-<臂>/`，**每个目录都含逐字节相同的 `emotion_profile.md`**。
+- 每臂一个隔离提示词目录 `runs/prompt-<臂>/`。**`emotion_profile.md` 的版本必须逐臂记录**（见 §11.9 更正：
+  本表九个臂并不全是同一个版本，v9s4/v9s5 混入了 ② 的新版提示词）。
 - 解码配置固定：`do_sample=false`、`max_new_tokens=1200`、`PARTICIPANT_MIN_NEW_TOKENS=0`。
 - 机器：MI300X（远端 NAS `/mnt/workspace/OGC/runs/eval-slice300-*/`）。
 
@@ -730,3 +731,30 @@ PID 45050  python3 tools/eval_loop.py --tag mi300x-v8-full
 **因此「空回复=0」与「三项指标同时最优」不可兼得（在当前提示词范围内）。**
 要同时拿到，需要解码/后处理层保底：命中 schema 塌陷时重试一次或用备用组包，
 那是 `deploy/participant/run_inference.py`（① 的范围），③ 只能上报建议。
+
+## 11.9 更正（2026-10-17 19:0x，队长指出）：v9s4 / v9s5 是双变量改动，不能与其余七臂并排
+
+**事实**（本地 Get-FileHash 核实）：
+
+| 臂 | emotion_profile.md |
+|---|---|
+| v8 / v9s / v9k / v9sk / v9s2 / v9sk2 / v9s3 | 6330 B，MD5 EEA5D42F8732D91B95F076945F4C454C（旧版） |
+| **v9s4 / v9s5** | **7503 B，MD5 C98B2F526320AE5149D81340F52BB38B**（② 的新版，提交 00fae71） |
+
+**原因**：我在 v9s3 之后执行了 git pull（带进 ② 的 00fae71 新画像提示词），
+随后建 v9s4/v9s5 时用 Copy-Item prompts/emotion_profile.md 拷的是**新版**，
+而 v8–v9s3 七臂用的是旧版。**我没有逐臂核对 emotion_profile.md 的哈希**，
+所以本节 §11.1 原来那句「每个目录都含逐字节相同的 emotion_profile.md」是**错的**，已删除改写。
+
+**受影响的数字**（一律不得与其余七臂并排比较）：
+- v9s4 的 **画像官方 0.0400**、**空回复 0.00%**；
+- v9s5 的 **画像官方 0.0889**、BLEU 0.0392 等。
+
+这两臂同时改了 response.md **和** emotion_profile.md，画像/情绪的差异**不能归因给 ③ 的改动**；
+尤其「v9s4 把空回复压到 0」很可能是 ② 新画像提示词「必须填」带来的，**③ 不能据此宣称达成空回复 0**。
+
+**仍然成立的部分**：v8 / v9s / v9k / v9sk / v9s2 / v9sk2 / v9s3 这七臂**共用同一旧版画像提示词**，
+它们之间的三项指标与空回复率比较是单变量（只差 response.md）。
+
+**待队长四臂干净对照（旧/新画像 × v8/v9s5，同一 300 条）出数后，再决定 response.md。**
+在那之前 §11.7 表里 v9s4 / v9s5 两行应视为**未定**。
