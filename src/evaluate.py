@@ -204,6 +204,12 @@ class SetAccumulator:
     """用于一个画像维度（或 memory_refs）的集合匹配统计。"""
 
     exact_match: int = 0
+    # 官方口径（GivenData/participant/README.md:100-102）：
+    #   「画像子项和记忆引用写为空数组。空值作为该项预测失败参与评分，不会获得该项命中分。」
+    # 所以预测为空 = 该项判错，即使金标也是空。我们原来的 exact_match 把「空 vs 空」
+    # 算成命中，会系统性高估——两个口径都留，报告里并列。
+    strict_match: int = 0
+    empty_pred: int = 0
     total: int = 0
     tp: int = 0
     fp: int = 0
@@ -215,6 +221,10 @@ class SetAccumulator:
         self.total += 1
         if pred_set == ref_set:
             self.exact_match += 1
+        if not pred_set:
+            self.empty_pred += 1
+        elif pred_set == ref_set:
+            self.strict_match += 1
         self.tp += len(pred_set & ref_set)
         self.fp += len(pred_set - ref_set)
         self.fn += len(ref_set - pred_set)
@@ -225,9 +235,12 @@ class SetAccumulator:
         precision = self.tp / (self.tp + self.fp) if (self.tp + self.fp) else 0.0
         recall = self.tp / (self.tp + self.fn) if (self.tp + self.fn) else 0.0
         f1 = 2 * precision * recall / (precision + recall) if (precision + recall) else 0.0
+        denom = self.total or 1
         return {
             "n": self.total,
             "exact_match_acc": self.exact_match / self.total if self.total else 0.0,
+            "exact_match_acc_official": self.strict_match / denom,
+            "empty_pred_rate": self.empty_pred / denom,
             "micro_precision": precision,
             "micro_recall": recall,
             "micro_f1": f1,
@@ -384,6 +397,10 @@ def evaluate_predictions(
     profile_acc_mean = sum(
         profile_acc[dim].exact_match for dim in PROFILE_DIMENSIONS
     ) / (reference_total * len(PROFILE_DIMENSIONS))
+    # 官方口径下的同一指标（空预测一律判错），主指标应与它对齐。
+    profile_acc_mean_official = sum(
+        profile_acc[dim].strict_match for dim in PROFILE_DIMENSIONS
+    ) / (reference_total * len(PROFILE_DIMENSIONS))
 
     dimensions_for_profile_mean = list(PROFILE_DIMENSIONS)
     if include_memory_refs:
@@ -398,6 +415,7 @@ def evaluate_predictions(
         "emotion_confusion": {gold: dict(row) for gold, row in sorted(emotion_confusion.items())},
         "profile_dimension_scores": profile_dim_scores,
         "profile_accuracy_mean_3dim": profile_acc_mean,
+        "profile_accuracy_mean_3dim_official": profile_acc_mean_official,
         "profile_dimensions_included": dimensions_for_profile_mean,
         "memory_refs_scores": memory_acc.score(),
         "response_quality": {
@@ -409,7 +427,12 @@ def evaluate_predictions(
         "bertscore": _bertscore(
             cand_texts, ref_texts, bertscore_encoder
         ),
-        "_caveat": "本地近似实现，官方评分脚本未下发；绝对值仅供参考，请用版本间对比。",
+        "_caveat": (
+            "本地近似实现，官方评分脚本未下发；绝对值仅供参考，请用版本间对比。"
+            "画像两项口径并存：profile_accuracy_mean_3dim 把「空 vs 空」算命中（旧口径，"
+            "会高估），profile_accuracy_mean_3dim_official 按 GivenData/participant/README.md "
+            "的「空值作为该项预测失败」判，后者才对齐官方。"
+        ),
     }
     return EvaluationReport(metrics=metrics, per_sample=per_sample, warnings=warnings)
 

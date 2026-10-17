@@ -191,9 +191,15 @@ def cmd_eval(args: argparse.Namespace) -> int:
         f"  画像 Acc(三维均值)     {metrics['profile_accuracy_mean_3dim']:.4f}   "
         f"计入维度 {metrics['profile_dimensions_included']}"
     )
+    print(
+        f"  ↳ 官方口径(空值判错)   {metrics['profile_accuracy_mean_3dim_official']:.4f}"
+        f"   ← 这个才是要拿去对标官方的数"
+    )
     for dim, score in metrics["profile_dimension_scores"].items():
         print(
             f"      {dim:<20} Acc {score['exact_match_acc']:.4f}  "
+            f"官方 {score['exact_match_acc_official']:.4f}  "
+            f"空预测率 {score['empty_pred_rate']:.4f}  "
             f"micro-F1 {score['micro_f1']:.4f}  Jaccard {score['macro_jaccard']:.4f}"
         )
     print(
