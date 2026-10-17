@@ -82,7 +82,10 @@ def main(argv=None) -> int:
     out = Path(args.out)
     out.parent.mkdir(parents=True, exist_ok=True)
     lines = ["\t".join(header)] + ["\t".join(row) for _key, row in ordered]
-    out.write_text("\n".join(lines) + "\n", encoding="utf-8")
+    # newline="\n" 不能省：Windows 上 write_text 默认会把 \n 翻成 \r\n，而 eval_loop.py
+    # 写出来的是 LF。台账一旦混进 CRLF，在 Linux 上 `cut -f` 会把 \r 一起切进字段，
+    # 分数列变成 "0.40399\r"，排序和比较全失效。
+    out.write_text("\n".join(lines) + "\n", encoding="utf-8", newline="\n")
 
     print(f"合并 {len(ordered)} 行 -> {out}")
     print(f"  来自 {len({s for v in sources.values() for s in v})} 个文件")
