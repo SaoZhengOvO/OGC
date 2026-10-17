@@ -20,7 +20,13 @@ DEPLOY="$REPO_ROOT/deploy"
 CONTEXT="$DEPLOY/dist/context"
 IMAGE_TAG="${IMAGE_TAG:-ogc-participant:latest}"
 BASE_IMAGE="${BASE_IMAGE:-ubuntu:22.04}"
+# INSTALL_TORCH=1 自己装 torch（ubuntu 路线）；
+# 基座镜像已带 torch 时设 0，只补 transformers 那一层。
+INSTALL_TORCH="${INSTALL_TORCH:-1}"
+# 兼容老用法：INSTALL_DEPS=1 等价于 INSTALL_TORCH=1
 INSTALL_DEPS="${INSTALL_DEPS:-0}"
+TORCH_INDEX="${TORCH_INDEX:-https://download.pytorch.org/whl/cu124}"
+PIP_INDEX_URL="${PIP_INDEX_URL:-https://pypi.org/simple}"
 MAKE_TAR=0
 STAGE_ONLY=0
 
@@ -135,6 +141,10 @@ if [ -d "$REPO_ROOT/rag" ]; then
     echo "  检索语料：$(wc -c <"$REPO_ROOT/rag/corpus/corpus.jsonl" | tr -d ' ') 字节"
   fi
   cp -a "$REPO_ROOT/rag/." "$CONTEXT/rag/" 2>/dev/null || true
+  # __pycache__ 是本机的 Python 版本编译出来的 .pyc，进镜像既没用又脏
+  # （容器里的 python 版本不同，这些 .pyc 一律会被忽略）。清掉。
+  find "$CONTEXT/rag" -type d -name '__pycache__' -prune -exec rm -rf {} + 2>/dev/null || true
+  find "$CONTEXT/rag" -type f -name '*.pyc' -delete 2>/dev/null || true
 fi
 if [ -z "$(ls -A "$CONTEXT/rag" 2>/dev/null)" ]; then
   echo "  [注意] rag/ 为空 —— 镜像不带检索，组包走官方版（合规，但少了记忆融合）。"
@@ -161,11 +171,14 @@ if [ "$STAGE_ONLY" = "1" ]; then
   exit 0
 fi
 
-say "4/5 构建镜像 $IMAGE_TAG（BASE_IMAGE=$BASE_IMAGE, INSTALL_DEPS=$INSTALL_DEPS）"
+say "4/5 构建镜像 $IMAGE_TAG（BASE_IMAGE=$BASE_IMAGE, INSTALL_TORCH=$INSTALL_TORCH, INSTALL_DEPS=$INSTALL_DEPS）"
 docker build \
   -f "$CONTEXT/Dockerfile" \
   --build-arg "BASE_IMAGE=$BASE_IMAGE" \
+  --build-arg "INSTALL_TORCH=$INSTALL_TORCH" \
   --build-arg "INSTALL_DEPS=$INSTALL_DEPS" \
+  --build-arg "TORCH_INDEX=$TORCH_INDEX" \
+  --build-arg "PIP_INDEX_URL=$PIP_INDEX_URL" \
   -t "$IMAGE_TAG" \
   "$CONTEXT"
 

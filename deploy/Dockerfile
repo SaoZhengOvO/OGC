@@ -10,6 +10,20 @@
 # 组委会唯一会执行的是：
 #     bash /root/participant/start.sh TEST_FILE RESULT_DIR
 #
+# ---------------------------------------------------------------------------
+# 2026-10-17 修正（P0）：这个镜像之前会「构建成功、自检通过、组委会一跑就崩」。
+#
+#   原因：INSTALL_DEPS=0（默认值）时一个包都不装，而 run_inference.py:357 的
+#   `import torch` 是**惰性导入**，藏在 `backend == "transformers"` 分支里——
+#   于是 build 能过、offline_check.sh 也能过，直到真跑推理才 ModuleNotFoundError。
+#
+#   修法两条，缺一不可：
+#     1. 依赖拆两半：torch 可选（基座镜像自带就不装），
+#        transformers / accelerate / safetensors 一律装。
+#     2. 构建末尾做**硬断言**：四个包任何一个 import 不进来，就让构建失败。
+#        宁可现在红，不要在组委会那里红。
+# ---------------------------------------------------------------------------
+#
 # 基础镜像怎么选（背景见 docs/roles/README.md「硬约束」）：
 #   客服已确认**没有可下载的官方基础镜像 tar 包**。官方口径里的「基础镜像」就是
 #   咪咕仝学平台的**公有镜像**——Ubuntu 那条的说明原文写着「集成了通用软件、
@@ -17,8 +31,9 @@
 #   平台实测可选的公有镜像：vLLM / Ollama / LMDeploy / PyTorch×7 / MiniConda3×4 /
 #   Ubuntu / PaddlePaddle / TensorFlow / DeepSeek / MiniMax / Qwen-Image ……
 #
-#   首选 **PyTorch 或 vLLM 公有镜像**（python + torch 已经装好，省掉几个 GB），
-#   其次 Ubuntu（此时用 --build-arg INSTALL_DEPS=1 自己装）。
+#   **默认走自建路线**（ubuntu:22.04 + 自己装依赖），理由是版本可控、不依赖平台
+#   私有 registry 的 pull 权限。如果构建机能 pull 到平台公有镜像，可以改成：
+#     BASE_IMAGE=<平台 PyTorch 镜像> INSTALL_TORCH=0 bash deploy/build.sh
 #
 # 离线自检（必经）：
 #   docker run --rm --network none ogc-participant:latest bash /opt/offline_check.sh
@@ -26,10 +41,21 @@
 ARG BASE_IMAGE=ubuntu:22.04
 FROM ${BASE_IMAGE}
 
-# INSTALL_DEPS=1 时自己装 python 依赖；基础镜像已带 torch 就保持 0。
-# cu130 是为了 Blackwell(sm_120)（我们自己的笔记本）；平台是 RTX 4090，cu128 也够。
+# INSTALL_TORCH=1：自己装 torch（ubuntu 路线）
+# INSTALL_TORCH=0：基座镜像已带 torch，只补 transformers 那一层
+ARG INSTALL_TORCH=1
+
+# CUDA 轮子版本。默认 cu124 —— 它对驱动的版本要求最宽（NVIDIA >= 525.60.13），
+# RTX 4090 无论平台装的是 525 / 550 / 560 驱动都能跑。
+# 不要随手改成 cu128 / cu130：那两个要求 570+ / 580+ 驱动；跑不起来时
+# torch.cuda.is_available() 会静默变 False，推理退化到 CPU，直接超时。
+ARG TORCH_INDEX=https://download.pytorch.org/whl/cu124
+
+# pip 源，构建机网络不好时可以覆盖成国内镜像
+ARG PIP_INDEX_URL=https://pypi.org/simple
+
+# 兼容旧参数：INSTALL_DEPS 沿用原有语义（1 = 连 torch 一起装）
 ARG INSTALL_DEPS=0
-ARG TORCH_INDEX=https://download.pytorch.org/whl/cu130
 
 ENV DEBIAN_FRONTEND=noninteractive \
     PYTHONUNBUFFERED=1 \
@@ -42,28 +68,66 @@ ENV DEBIAN_FRONTEND=noninteractive \
 
 SHELL ["/bin/bash", "-lc"]
 
-# ---------- 依赖（基础镜像已带 python+torch 时跳过） ----------
-RUN if [ "$INSTALL_DEPS" = "1" ]; then \
-      apt-get update && apt-get install -y --no-install-recommends \
-        python3 python3-pip ca-certificates \
-      && rm -rf /var/lib/apt/lists/* \
-      && python3 -m pip install --no-cache-dir --upgrade pip \
-      && python3 -m pip install --no-cache-dir torch --index-url "${TORCH_INDEX}" \
-      && python3 -m pip install --no-cache-dir transformers accelerate safetensors; \
-    fi
+# ---------- 1/3 Python 运行时 ----------
+# 基座镜像可能连 python3 都没有（ubuntu:22.04 自带 3.10，但不带 pip），
+# 所以按「缺什么补什么」处理，而不是按固定的开关走。
+RUN set -eux; \
+    if ! command -v python3 >/dev/null 2>&1; then \
+      apt-get update; \
+      apt-get install -y --no-install-recommends python3 python3-pip ca-certificates; \
+      rm -rf /var/lib/apt/lists/*; \
+    fi; \
+    if ! python3 -m pip --version >/dev/null 2>&1; then \
+      apt-get update; \
+      apt-get install -y --no-install-recommends python3-pip ca-certificates; \
+      rm -rf /var/lib/apt/lists/*; \
+    fi; \
+    python3 --version; \
+    python3 -m pip --version
 
-# ---------- 参赛工具（= deploy/participant 的内容 + 队友的提示词） ----------
+# ---------- 2/3 推理依赖 ----------
+# torch 可选；transformers 那一层**永远装**。
+# 这一层是 P0 的正面修复：以前 INSTALL_DEPS=0 时连 transformers 都没装。
+RUN set -eux; \
+    if [ "${INSTALL_DEPS}" = "1" ]; then INSTALL_TORCH=1; fi; \
+    python3 -m pip install --no-cache-dir --upgrade pip; \
+    if [ "${INSTALL_TORCH}" = "1" ]; then \
+      python3 -m pip install --no-cache-dir torch --index-url "${TORCH_INDEX}"; \
+    fi; \
+    python3 -m pip install --no-cache-dir \
+      --index-url "${PIP_INDEX_URL}" \
+      "transformers>=4.40" \
+      "accelerate>=0.29" \
+      "safetensors>=0.4" \
+      "sentencepiece>=0.1.99" \
+      "protobuf>=4.21"
+
+# ---------- 2.5/3 硬断言：缺依赖就让构建失败 ----------
+# 这一段是整个 Dockerfile 里最重要的几行。
+# 它把「镜像到底能不能跑」从「组委会那一刻才知道」提前到「build 那一刻就知道」。
+RUN set -eux; \
+    python3 -c "import torch, transformers, accelerate, safetensors; \
+print('[deps] torch        ', torch.__version__); \
+print('[deps] transformers ', transformers.__version__); \
+print('[deps] accelerate   ', accelerate.__version__); \
+print('[deps] safetensors  ', safetensors.__version__); \
+print('[deps] torch.cuda.is_available() =', torch.cuda.is_available(), '(构建机通常无 GPU，False 属正常)')"
+
+# ---------- 3/3 参赛工具 ----------
+# = deploy/participant 的内容（含 build.sh 暂存进来的 prompts/）
 COPY participant/ /root/participant/
 
-# ---------- 模型权重：必须打进镜像，运行时不许联网下载 ----------
-# 本地先跑 python tools/fetch_model.py 下到 GivenData/participant/model/。
-# Qwen2.5-3B fp16 约 6.2 GB；整个镜像要守住平台的 50 GB 上限。
+# 模型权重：必须打进镜像，运行时不许联网下载。
+# run_inference.py:142 用 `ROOT / model_path` 解析，ROOT = /root/participant，
+# 所以 "./model" 命中 /root/participant/model —— 与启动时的 CWD 无关。
 COPY model/ /root/participant/model/
 
-# ---------- 角色④⑤的检索与组包模块（缺失也能跑，wiring.py 会回退） ----------
+# 角色④⑤的检索与组包模块（缺失也能跑，wiring.py 会回退）。
+# wiring.py:58-70 会把 PARTICIPANT_CONTENT_ROOT（=/root）插进 sys.path，
+# 所以 /root/rag 能被 import。
 COPY rag/ /root/rag/
 
-# ---------- 自检脚本 ----------
+# 自检脚本
 COPY offline_check.sh /opt/offline_check.sh
 RUN chmod +x /root/participant/start.sh /opt/offline_check.sh 2>/dev/null || true
 
