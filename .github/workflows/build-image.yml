@@ -1,0 +1,96 @@
+name: build-image
+
+# 为什么在 GitHub Actions 里构建
+# --------------------------------
+# 本地是 Windows（没有 WSL2，Docker Desktop 起不来）；AMD 那台是 k8s pod
+#（`no docker` / `no podman` / 无 `/var/run/docker.sock`，不是特权容器）。
+# 也就是说**没有任何一台手边的机器能执行 `docker build`**，而自动评测 70 分全靠镜像。
+# `ubuntu-latest` runner 自带 docker daemon，是当前唯一可用的构建机。
+#
+# 用法
+# ----
+#   Actions → build-image → Run workflow
+#     team_name: 报名队名（决定 /root/AI技术赛道-数字人综合情感对话模型-<队名>/）
+#     push_image: 构建通过后是否推到 ghcr.io
+#
+# 本地等价命令（在一台有 docker 的 Linux 上）：
+#   python3 tools/fetch_model.py && bash deploy/build.sh
+
+on:
+  workflow_dispatch:
+    inputs:
+      team_name:
+        description: "报名队名（用于专家评审材料目录名）"
+        required: false
+        default: "OGC"
+      push_image:
+        description: "构建+自检通过后推送到 ghcr.io"
+        required: false
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+  packages: write
+
+concurrency:
+  group: build-image-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 180
+    steps:
+      - name: 检出
+        uses: actions/checkout@v4
+
+      - name: 磁盘现状
+        run: |
+          df -h /
+          docker version --format '{{.Server.Version}}' || true
+
+      - name: 释放磁盘（镜像约 10 GB，层最坏堆到 25 GB）
+        run: |
+          set -eux
+          sudo rm -rf /usr/local/lib/android || true
+          sudo rm -rf /usr/share/dotnet || true
+          sudo rm -rf /opt/ghc || true
+          sudo rm -rf /opt/hostedtoolcache || true
+          sudo rm -rf /usr/local/share/powershell || true
+          sudo apt-get clean
+          docker system prune -af || true
+          df -h /
+
+      - name: 拉模型权重（Qwen2.5-3B-Instruct，5.76 GB，支持断点续传）
+        run: |
+          python3 -V
+          python3 tools/fetch_model.py
+          ls -l GivenData/participant/model/ | head -20
+          du -sh GivenData/participant/model/
+
+      - name: 组装暂存目录 + 构建镜像 + 离线自检
+        env:
+          TEAM_NAME: ${{ inputs.team_name }}
+        run: |
+          bash deploy/build.sh
+        # build.sh 内部依次执行：
+        #   1) 校验权重 2) 组装 deploy/dist/context 3) 清单
+        #   4) docker build 5) docker run --rm --network none ... /opt/offline_check.sh
+
+      - name: 镜像信息
+        if: always()
+        run: |
+          docker images | head -10
+          docker image inspect ogc-participant:latest --format '{{.Size}}' 2>/dev/null || true
+          df -h /
+
+      - name: 推送到 ghcr.io
+        if: ${{ inputs.push_image == true }}
+        run: |
+          set -eux
+          IMAGE="ghcr.io/${GITHUB_REPOSITORY_OWNER,,}/ogc-participant:latest"
+          echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u "${{ github.actor }}" --password-stdin
+          docker tag ogc-participant:latest "$IMAGE"
+          docker push "$IMAGE"
+          echo "已推送：$IMAGE"
