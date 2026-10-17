@@ -41,6 +41,22 @@ PROFILE_LABELS = {
     "style": {"brief", "detailed", "colloquial", "formal", "direct", "indirect", "humorous", "rational", "high_emotional_expression", "low_emotional_expression", "emoji_user"},
 }
 MEMORY_RE = re.compile(r"^mem_[0-9]{6}$")
+
+# 画像兜底：官方规则（GivenData/participant/README.md:100-102）——
+# 「画像子项和记忆引用写为空数组……空值作为该项预测失败参与评分，不会获得该项命中分。」
+# 也就是说留空是**必然 0 分**，不是「保守」。所以模型放弃某一维时，用一个先验标签补上，
+# 不改动模型已经给出的判断，只在它交空数组时兜底。
+# 先验取自验证集里「非空金标中出现最多」的标签（n=2354）：
+#   personality_traits  sensitive          （占非空 42.6%）
+#   interests           career_development （占非空 19.9%）
+#   style               rational           （占非空 43.9%）
+# 关掉：设环境变量 PARTICIPANT_PROFILE_FLOOR=0。
+PROFILE_FLOOR_DEFAULTS = {
+    "personality_traits": "sensitive",
+    "interests": "career_development",
+    "style": "rational",
+}
+
 SYSTEM_PROMPT = """你正在参加数字情感陪伴比赛。根据截止到最新用户消息的对话历史，完成下一轮 Assistant 回复预测。
 
 只输出一个 JSON object，不要输出 Markdown 或解释。object 必须且只能包含：
@@ -277,6 +293,27 @@ def recover_response_text(text: str) -> str:
     return cleaned
 
 
+def profile_floor_enabled() -> bool:
+    """画像空位兜底是否开启。默认开，`PARTICIPANT_PROFILE_FLOOR=0/false/no/off` 关闭。"""
+    value = os.environ.get("PARTICIPANT_PROFILE_FLOOR", "")
+    return value.strip().lower() not in {"0", "false", "no", "off"}
+
+
+def apply_profile_floor(profile: dict[str, list[str]]) -> dict[str, list[str]]:
+    """把空维度补成先验标签；非空的维度原样保留。
+
+    只补空、不覆盖，所以「模型判断对」的样本完全不受影响；模型交空数组的那部分样本
+    从「必然 0 分」变成「有先验命中率的分」。
+    """
+    filled = dict(profile)
+    for name, prior in PROFILE_FLOOR_DEFAULTS.items():
+        if filled.get(name):
+            continue
+        if prior in PROFILE_LABELS.get(name, ()):
+            filled[name] = [prior]
+    return filled
+
+
 def normalize_prediction(sample_id: str, raw: dict[str, Any]) -> dict[str, Any]:
     response = raw.get("response_text")
     emotion = raw.get("emotion_label")
@@ -295,6 +332,8 @@ def normalize_prediction(sample_id: str, raw: dict[str, Any]) -> dict[str, Any]:
             and set(values) <= allowed
         )
         clean_profile[name] = values if valid else []
+    if profile_floor_enabled():
+        clean_profile = apply_profile_floor(clean_profile)
     valid_memories = (
         isinstance(memories, list)
         and all(isinstance(value, str) and MEMORY_RE.fullmatch(value) for value in memories)
