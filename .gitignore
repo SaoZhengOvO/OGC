@@ -44,3 +44,4 @@ pip-*/
 torchinductor_*/
 # 本地临时取回的文件，不进版本库
 tmp/
+deploy/.corpus-build.log

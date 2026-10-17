@@ -494,7 +494,14 @@ def main(argv=None) -> int:
         cmd = [sys.executable, str(REPO_ROOT / "src" / "cli.py"), "validate", "--submission", str(submission)]
         if input_path is not None:
             cmd += ["--input", str(input_path)]
-        run_step(cmd, title="validate")
+        # 校验退出码原本被丢掉：格式非法的 submission 照样进入打分，台账上会出现
+        # 「格式非法但分数正常」的行，事后看不出这条分数不可信。
+        validate_code = run_step(cmd, title="validate")
+        if validate_code != 0:
+            raise SystemExit(
+                f"提交格式校验失败（退出码 {validate_code}），已中止打分。\n"
+                f"  确认只是想留个分数、不在乎格式的话，加 --skip-validate 显式绕过。"
+            )
 
     print("[4/4] 本地打分")
     references_path = Path(args.references).resolve()

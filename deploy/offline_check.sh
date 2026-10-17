@@ -163,7 +163,11 @@ JSONL
   set +e
   timeout "$RUNTIME_TIMEOUT" bash "$PARTICIPANT/start.sh" "$PROBE_IN" "$OUT_DIR" > "$WORK/run.log" 2>&1
   start_rc=$?
-  set -e
+  # 这里必须是 set +e 而不是 set -e：脚本头是 `set -uo pipefail`（故意不开 -e，
+  # 靠 FAIL 计数汇总）。如果在这里开 -e，它会**泄漏到后面所有检查**——哪条未加
+  # 保护的命令返回非零，脚本就当场中止，末尾的「通过 N / 失败 N」和 [FAIL] 行
+  # 都不会执行，退出码虽然非零但失败项没被计入。
+  set +e
   if [ "$start_rc" -eq 0 ]; then
     ok "入口脚本退出码 0"
   elif [ "$start_rc" -eq 124 ]; then
@@ -209,6 +213,24 @@ print(f"        {len(rows)} 行 schema 合规；空回复 {empty}/{len(rows)} �
 raise SystemExit(0)
 PYEOF
     then ok "submission.jsonl 每行都符合提交 schema"; else bad "submission.jsonl 有不合规行（见上）"; fi
+    # schema 合规 ≠ 有内容。空回复在官方口径下是实打实的 0 分（回应质量三项全空），
+    # 原来只当 info 打印，于是「1% 空回复」的镜像自检照样通过。这里单独计数：
+    # 默认记 WARN；设 STRICT_EMPTY=1 时转 FAIL。
+    empty_rows="$("$PY" - "$SUB" <<'PYEOF'
+import json, sys, pathlib
+rows = [json.loads(l) for l in pathlib.Path(sys.argv[1]).read_text(encoding="utf-8").splitlines() if l.strip()]
+print(sum(1 for r in rows if not (r.get("response_text") or "").strip()))
+PYEOF
+)"
+    if [ "${empty_rows:-0}" -gt 0 ]; then
+      if [ "${STRICT_EMPTY:-0}" = "1" ]; then
+        bad "submission.jsonl 有 $empty_rows 条空回复（STRICT_EMPTY=1，按失败计）"
+      else
+        warn "submission.jsonl 有 $empty_rows 条空回复（官方口径下必判错；设 STRICT_EMPTY=1 可转 FAIL）"
+      fi
+    else
+      ok "没有空回复"
+    fi
     info "第 1 行预览：$(head -c 220 "$SUB")"
   else
     bad "没有生成 $SUB"

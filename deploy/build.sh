@@ -105,12 +105,26 @@ if command -v sed >/dev/null 2>&1; then
 fi
 
 # 硬断言：任何 .sh 里都不能再残留 CR。宁可现在失败，也不要交一个跑不起来的镜像。
-if LC_ALL=C grep -rlP '\r' "$CONTEXT"/participant/*.sh "$CONTEXT"/participant/**/*.sh 2>/dev/null | grep -q .; then
-  echo "构建中止：暂存目录里仍有 .sh 脚本带 CRLF，进镜像会报 bad interpreter。" >&2
-  LC_ALL=C grep -rlP '\r' "$CONTEXT"/participant/*.sh "$CONTEXT"/participant/**/*.sh 2>/dev/null | sed 's/^/    /' >&2
+#
+# 旧写法是 `grep -rlP '\r' … **/*.sh | grep -q .`，有两个空转风险：
+#   1. 没开 globstar 时 `**` 等同于 `*`，子目录里的脚本根本没被检查；
+#   2. `grep -P` 在精简版 grep（busybox / 部分容器）上不支持，管道返回非零，
+#      `if` 判假，于是照样打印「行尾检查通过」——检查本身失败却看起来通过了。
+# 改成 globstar + nullglob + 不带 -P 的 `$'\r'`，并单独把「grep 自身报错」判成失败。
+shopt -s globstar nullglob
+sh_files=("$CONTEXT"/participant/*.sh "$CONTEXT"/participant/**/*.sh)
+grep_rc=0
+crlf_hits="$(LC_ALL=C grep -l $'\r' "${sh_files[@]}" 2>/dev/null)" || grep_rc=$?
+if [ "$grep_rc" -ge 2 ]; then
+  echo "构建中止：行尾检查本身执行失败（grep 退出码 $grep_rc），不能当成通过。" >&2
   exit 1
 fi
-echo "  行尾检查通过：所有 .sh 均为 LF"
+if [ -n "$crlf_hits" ]; then
+  echo "构建中止：暂存目录里仍有 .sh 脚本带 CRLF，进镜像会报 bad interpreter。" >&2
+  printf '    %s\n' "$crlf_hits" >&2
+  exit 1
+fi
+echo "  行尾检查通过：${#sh_files[@]} 个 .sh 均为 LF"
 
 # 清掉 __pycache__ / .pyc：本机 Python 版本编译的字节码，容器里版本不同一律失效，
 # 留进镜像既无用又脏（还会让「代码规范性」那 10 分看着不认真）。
@@ -134,12 +148,23 @@ if [ -d "$REPO_ROOT/rag" ]; then
   # —— 融合层照跑，只是每次都在拼一个空 retrieved 列表，看起来「生效了」其实没生效。
   if [ ! -s "$REPO_ROOT/rag/corpus/corpus.jsonl" ] \
      && [ -f "$REPO_ROOT/rag/corpus/build_corpus.py" ]; then
+    # 语料构建失败不能吞：吞掉之后只剩一句「语料仍然缺失」，stderr 在 CI 里也常被截断，
+    # 事后完全看不出是「脚本不存在」还是「跑挂了」。这里把退出码和日志尾部落进台账。
+    corpus_log="$REPO_ROOT/deploy/.corpus-build.log"
+    corpus_rc=0
     if command -v python3 >/dev/null 2>&1; then
       echo "  构建检索语料（rag/corpus/corpus.jsonl 不存在）……"
-      ( cd "$REPO_ROOT" && python3 -m rag.corpus.build_corpus ) || true
+      ( cd "$REPO_ROOT" && python3 -m rag.corpus.build_corpus ) >"$corpus_log" 2>&1 || corpus_rc=$?
     elif command -v python >/dev/null 2>&1; then
       echo "  构建检索语料（用 python，不是 python3）……"
-      ( cd "$REPO_ROOT" && python -m rag.corpus.build_corpus ) || true
+      ( cd "$REPO_ROOT" && python -m rag.corpus.build_corpus ) >"$corpus_log" 2>&1 || corpus_rc=$?
+    else
+      echo "  [警告] 找不到 python3 / python，没法构建检索语料。"
+    fi
+    if [ "$corpus_rc" -ne 0 ]; then
+      echo "  [警告] 语料构建失败（退出码 $corpus_rc），日志末 10 行：" >&2
+      tail -n 10 "$corpus_log" 2>/dev/null | sed 's/^/          /' >&2
+      echo "         完整日志：$corpus_log" >&2
     fi
   fi
   if [ ! -s "$REPO_ROOT/rag/corpus/corpus.jsonl" ]; then
