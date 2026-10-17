@@ -184,10 +184,23 @@ class TestRetrievalFiltering(FusionTestBase):
         return item
 
     def test_normal_item_is_used(self) -> None:
+        # 默认位置是 system（2026-10-17 改）：检索块放 user 段末尾会紧贴目标轮，
+        # 让「别人的经历」和本轮对话争夺注意力，实测情绪 Acc 掉 5.5pp。
         messages = fusion.build_messages(
             make_sample(), [self._retrieved()], "系统提示"
         )
+        self.assertIn("参考回复正文", messages[0]["content"])
+        self.assertNotIn("参考回复正文", messages[1]["content"])
+
+    def test_legacy_user_placement_still_available(self) -> None:
+        with mock.patch.dict(
+            os.environ, {fusion.RETRIEVED_PLACEMENT_FLAG: "0"}, clear=False
+        ):
+            messages = fusion.build_messages(
+                make_sample(), [self._retrieved()], "系统提示"
+            )
         self.assertIn("参考回复正文", messages[1]["content"])
+        self.assertNotIn("参考回复正文", messages[0]["content"])
 
     def test_self_retrieval_is_dropped(self) -> None:
         sample = make_sample()
