@@ -180,9 +180,15 @@ gh run view <run-id> --log              # 作业完成后才可取日志
 ```
 
 `.github/workflows/build-image.yml` 在 `ubuntu-latest` 上依次做：
-释放磁盘 → `tools/fetch_model.py` 拉权重（5.76 GB，带断点续传）→ `bash deploy/build.sh`
-（组装 + `docker build` + `docker run --network none` 跑 `offline_check.sh`）→ 打印镜像信息。
+释放磁盘 → **`pytest`（测试不过就不构建）** → `tools/fetch_model.py` 拉权重（5.76 GB，带断点续传）
+→ `bash deploy/build.sh`（组装 + `docker build` + `docker run --network none` 跑 `offline_check.sh`）
+→ 打印镜像信息 → `docker save | gzip -1` 导出 tar → **`tools/inspect_image_tar.py` 把 tar 打开
+逐项断言评审材料与入口脚本** → 上传产物（tar + sha256 + `image-inspect.json`）。
 `push_image=true` 时额外推到 `ghcr.io/<owner>/ogc-participant`。
+
+最后那步检查不是摆设：2026-10-17 就出现过「构建全绿、镜像能跑，但评审材料里少了一份
+评测台账」—— 只有把 tar 打开才会发现。`inspect_image_tar.py` 会同时做逐字节比对，
+镜像里的代码与仓库不一致时直接报出来（本地 `deploy/participant/*.py` vs 镜像里的同名文件）。
 
 ### 路线 B：任何有 Docker 的 Linux 机器
 
