@@ -109,6 +109,11 @@ if LC_ALL=C grep -rlP '\r' "$CONTEXT"/participant/*.sh "$CONTEXT"/participant/**
 fi
 echo "  行尾检查通过：所有 .sh 均为 LF"
 
+# 清掉 __pycache__ / .pyc：本机 Python 版本编译的字节码，容器里版本不同一律失效，
+# 留进镜像既无用又脏（还会让「代码规范性」那 10 分看着不认真）。
+find "$CONTEXT" -type d -name '__pycache__' -prune -exec rm -rf {} + 2>/dev/null || true
+find "$CONTEXT" -type f -name '*.pyc' -delete 2>/dev/null || true
+
 # 队友的提示词（角色②③）；没有就留空目录，wiring.py 会回退到官方提示词
 mkdir -p "$CONTEXT/participant/prompts"
 if [ -d "$REPO_ROOT/prompts" ]; then
