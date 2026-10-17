@@ -1,8 +1,13 @@
-# 复现指南：从裸机到产出提交文件
+﻿# 复现指南：从裸机到产出提交文件
 
 > 作者：角色⑤B（专家评审文档）。对应官方评分项「专家评审 — 代码规范性（10 分）」。
-> 本文所有命令都在本机实测跑过；**唯一未实测的是镜像内的 `bash` 部分**（本机没有 bash/docker），
-> 已在结尾「未实测的部分」里逐条标注。
+> 本文的命令分三类，**每类都标了它到底有没有真跑过**：
+> ① **本机真跑**（Windows + MSYS `sh`）：`deploy/build.sh --stage-only`、`deploy/offline_check.sh`、单元测试、评测；
+> ② **本机跑不了、但在别处真跑过**：`docker build` + `docker run --network none`，跑在 GitHub Actions 的
+> `ubuntu-latest` runner 上（`.github/workflows/build-image.yml`）；
+> ③ **仍未实测**：在官方平台上的提交与评测（截止前会做一次预演）。
+> 本机没有 WSL2（Docker Desktop 起不来），算力机是 k8s pod（`no docker` / `no podman`），
+> 所以 **docker 相关一律走 CI，不在本机跑**。
 
 ## 零、环境前提
 
@@ -146,7 +151,7 @@ python src\cli.py build
 
 ```powershell
 .venv\Scripts\python.exe -m unittest discover -s tests
-# 期望：Ran 114 tests ... OK（数字随开发增长，关键是 OK）
+# 期望：Ran 115 tests ... OK（数字随开发增长，关键是 OK）
 
 .venv\Scripts\python.exe docs\reports\audit_code.py
 # 代码规范性巡检：模块 docstring / 类型标注 / 写死路径 / 中文标识符 /
@@ -156,7 +161,25 @@ python src\cli.py build
 
 **改动推理或融合逻辑后必须再跑一遍**，并在群里说明验证步骤。
 
-## 六、打包镜像（Linux / WSL 上执行）
+## 六、打包镜像
+
+**本机跑不了 `docker build`**（Windows 没有 WSL2，Docker Desktop 起不来；算力机是 k8s pod，
+`no docker` / `no podman` / 无 `docker.sock`）。所以分两条路：
+
+### 路线 A（推荐）：GitHub Actions 一键构建
+
+```bash
+gh workflow run build-image.yml -f team_name=OGC -f push_image=false
+gh run list --workflow=build-image.yml --limit 1
+gh run view <run-id> --log              # 作业完成后才可取日志
+```
+
+`.github/workflows/build-image.yml` 在 `ubuntu-latest` 上依次做：
+释放磁盘 → `tools/fetch_model.py` 拉权重（5.76 GB，带断点续传）→ `bash deploy/build.sh`
+（组装 + `docker build` + `docker run --network none` 跑 `offline_check.sh`）→ 打印镜像信息。
+`push_image=true` 时额外推到 `ghcr.io/<owner>/ogc-participant`。
+
+### 路线 B：任何有 Docker 的 Linux 机器
 
 ```bash
 python tools/fetch_model.py --check      # 先确认权重完整
@@ -177,6 +200,9 @@ bash deploy/build.sh --stage-only        # 只组装 deploy/dist/context/，不�
 静态扫描外网 URL 与 `pip install` → 提示词与 RAG 接线状态 → **断网真跑 3 条样例并校验产物格式**。
 任一 `[FAIL]` 都是退出码 1，**这份镜像不要提交**。
 
+> ⚠️ 第 6 节在纯 CPU runner 上很慢：3B 模型 fp32 逐条生成，3 条样例可能要十几分钟。
+> 这是正常现象，**不是卡死**；作业上限 6 小时，足够。
+
 ## 七、平台侧
 
 ```bash
@@ -191,8 +217,8 @@ bash /root/participant/start.sh TEST_FILE RESULT_DIR
 
 | 项 | 状态 | 原因 |
 |---|---|---|
-| `deploy/build.sh` | **未执行** | 本机没有 bash（`Get-Command bash` 为空，Git Bash 也不在常见路径） |
-| `deploy/offline_check.sh` | **未执行** | 同上 |
-| `deploy/participant/start.sh` | **未执行** | 同上 |
-| `docker build` / 镜像体积 | **未执行** | 本机没有 docker；50 GB 上限是官方口径，不是实测值 |
-| 咪咕平台上的真实运行 | **未执行** | 账户余额 0 AIQ、卡时券 10 卡时，需队长分配额度后再上机 |
+| `deploy/build.sh --stage-only` | **已真跑** | MSYS `sh.exe`（`portable-git/usr/bin/sh.exe`），29 个文件组装成功、行尾断言通过、`__pycache__` 清干净 |
+| `deploy/offline_check.sh` | **已真跑** | 在暂存目录上 `通过 16 项，失败 0 项`（权重硬链接、语料 18,162,658 B、索引 11.7 MB） |
+| `deploy/participant/start.sh` | **已在队友机器真跑** | 角色②用 Git Bash 跑通，`[wiring] prompts=emotion_profile,response`、`PASS: submission.jsonl` |
+| `docker build` / 镜像体积 | **改在 CI 跑** | 见 §六 路线 A；本机与算力机都没有 docker daemon |
+| 在官方平台上提交 | **未执行** | 截止前做一次预演；每队最多 5 次成功测评，失败不占次数 |
