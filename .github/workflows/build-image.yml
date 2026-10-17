@@ -85,7 +85,32 @@ jobs:
           docker image inspect ogc-participant:latest --format '{{.Size}}' 2>/dev/null || true
           df -h /
 
-      - name: 推送到 ghcr.io
+      # 交付物：一个能 `docker load` 回去的 tar。
+      # 压缩用 gzip -1（不是 -9）：镜像里大头是 bf16 权重，压不动，-9 只多花几分钟换几个百分点。
+      # 现代 docker 支持 `docker load -i xxx.tar.gz`，不用先解压。
+      - name: 导出镜像 tar.gz
+        id: export
+        run: |
+          set -eux
+          OUT="ogc-participant-OGC.tar.gz"
+          docker save ogc-participant:latest | gzip -1 > "$OUT"
+          ls -l "$OUT"
+          du -h "$OUT"
+          sha256sum "$OUT" | tee "${OUT}.sha256"
+          echo "path=$OUT" >> "$GITHUB_OUTPUT"
+          df -h /
+
+      - name: 上传镜像产物
+        uses: actions/upload-artifact@v4
+        with:
+          name: ogc-participant-image
+          path: |
+            ogc-participant-OGC.tar.gz
+            ogc-participant-OGC.tar.gz.sha256
+          retention-days: 7
+          compression-level: 0   # 已经是 gzip，别让 artifact 再套一层
+
+      - name: 推送到 ghcr.io（可选）
         if: ${{ inputs.push_image == true }}
         run: |
           set -eux
