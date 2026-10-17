@@ -36,6 +36,37 @@ from typing import Any, Callable
 
 PARTICIPANT_DIR = Path(__file__).resolve().parent
 
+#: 降级计数。**静默降级是这个项目最贵的 bug 类型**：日志一切正常、分数悄悄变低，
+#: 在只有 5 次测评机会的赛制里根本排不出来。所以两层都记数，并且由
+#: run_inference.py 写进 performance_report.json。
+#: 键是降级原因（`import:rag.fusion` / `call:rag.fusion` / `unusable:rag.fusion` 等），
+#: 值是该原因发生的次数；第一次发生时额外打一行 `[warn]`，之后只记数不刷屏。
+FALLBACK_COUNTS: dict[str, int] = {}
+
+#: 每个原因第一次出现时的异常原文，给事后定位用（计数只说明「发生过」）。
+FALLBACK_REASONS: dict[str, str] = {}
+
+
+def _note_fallback(reason: str, detail: str = "") -> None:
+    """记一次降级；同一原因只在第一次打印，避免一万条样本刷屏。"""
+    first = reason not in FALLBACK_COUNTS
+    FALLBACK_COUNTS[reason] = FALLBACK_COUNTS.get(reason, 0) + 1
+    if detail and reason not in FALLBACK_REASONS:
+        FALLBACK_REASONS[reason] = detail
+    if first:
+        suffix = f"：{detail}" if detail else ""
+        print(f"[warn] 接线降级 {reason}{suffix}", flush=True)
+
+
+def fallback_stats() -> dict:
+    """给 performance_report.json 用的降级台账。"""
+    return {
+        "counts": dict(sorted(FALLBACK_COUNTS.items())),
+        "reasons": dict(sorted(FALLBACK_REASONS.items())),
+        "total": sum(FALLBACK_COUNTS.values()),
+    }
+
+
 #: 镜像里 /root/participant 的上一层（= /root），本地布局里 = 仓库根目录。
 CONTENT_ROOT = Path(
     os.environ.get("PARTICIPANT_CONTENT_ROOT") or str(PARTICIPANT_DIR.parent)
@@ -175,13 +206,20 @@ def build_messages(
     system_prompt: str,
     conversation_text: Callable[[dict], str],
 ) -> list[dict]:
-    """按契约装配一条样本的 messages。**永不抛异常。**"""
+    """按契约装配一条样本的 messages。**永不抛异常。**
+
+    永不抛异常不等于永不失声：每一条退回官方组包的分支都会走 :func:`_note_fallback`
+    记一次降级（第一次额外打印），并由 run_inference.py 写进 performance_report.json。
+    否则「融合层抛异常 → 官方组包」和「融合层正常」在日志里长得一模一样。
+    """
     fallback = default_messages(sample, system_prompt, conversation_text)
     module = _import("rag.fusion")
     if module is None:
+        _note_fallback("import:rag.fusion", "模块导入失败，整趟都走官方组包")
         return fallback
     function = getattr(module, "build_messages", None)
     if not callable(function):
+        _note_fallback("missing:rag.fusion.build_messages", "模块里没有可调用的 build_messages")
         return fallback
     retrieved = retrieve_memories(sample)
     try:
@@ -189,9 +227,11 @@ def build_messages(
             produced = function(sample, retrieved, system_prompt)
         else:
             produced = function(sample, retrieved)
-    except Exception:  # noqa: BLE001
+    except Exception as exc:  # noqa: BLE001
+        _note_fallback("call:rag.fusion.build_messages", f"{type(exc).__name__}: {exc}")
         return fallback
     if not _messages_are_usable(produced):
+        _note_fallback("unusable:rag.fusion.build_messages", "返回的 messages 不合官方契约")
         return fallback
     return produced
 
@@ -213,7 +253,12 @@ def describe() -> dict:
 
 
 def log_wiring() -> None:
-    """启动时打印一行，落进运行日志里当证据。"""
+    """启动时打印一行，落进运行日志里当证据。
+
+    「模块能 import」不等于「这条链路真的被用上了」：`describe()` 只能证明
+    `rag.fusion` 存在，不能证明 `build_messages` 没在每条样本上抛异常退回官方组包。
+    所以这一行只当**启动快照**，真实降级次数看结尾打印的 fallback 台账。
+    """
     info = describe()
     print(
         "[wiring] content_root={content_root} prompt_dir={prompt_dir} "
@@ -226,3 +271,13 @@ def log_wiring() -> None:
         ),
         flush=True,
     )
+
+
+def log_fallback_summary() -> None:
+    """跑完之后打印降级台账。全 0 才是「接线真的生效了」。"""
+    stats = fallback_stats()
+    if not stats["total"]:
+        print("[wiring] 降级 0 次：全程走融合层组包", flush=True)
+        return
+    detail = ", ".join(f"{reason}={count}" for reason, count in stats["counts"].items())
+    print(f"[warn] 接线降级共 {stats['total']} 次（{detail}），这些样本走了官方组包", flush=True)

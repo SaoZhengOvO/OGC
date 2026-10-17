@@ -25,10 +25,15 @@ CONFIG_PATH = ROOT / "configs" / "inference_config.json"
 # 我们自己的接线层（同目录的 wiring.py）：负责把队友写的提示词与 RAG 模块
 # 接进来，任何一步失败都退回下面的官方 SYSTEM_PROMPT。官方原件没有这个
 # 文件，因此删掉 wiring.py 就等于完全按官方基线跑。
+#
+# 但是「静默退回基线」是这个项目最贵的 bug 类型：日志一切正常、分数悄悄变低。
+# 所以这里把异常原文留下来，由 main() 在开头打一行 `[warn]`。
+WIRING_IMPORT_ERROR = ""
 try:
     import wiring  # type: ignore[import-not-found]
-except Exception:  # noqa: BLE001 - 少一个文件也必须能跑出合规输出
+except Exception as exc:  # noqa: BLE001 - 少一个文件也必须能跑出合规输出
     wiring = None  # type: ignore[assignment]
+    WIRING_IMPORT_ERROR = f"{type(exc).__name__}: {exc}"
 
 EMOTIONS = {
     "joy", "gratitude", "relaxed", "care", "pride", "neutral", "surprise",
@@ -510,10 +515,19 @@ def main() -> None:
 
     samples = read_jsonl(test_file)
     submission_path = result_dir / "submission.jsonl"
-    submission_path.write_text("", encoding="utf-8")
+    # 先写 .partial，全部跑完再原子改名。
+    #
+    # 旧写法是「开头把 submission.jsonl 截断成空，之后逐条 append」。两个问题：
+    # 1. 中途崩掉会留下半截文件，而评测方如果只读 RESULT_DIR 不看退出码，就会拿
+    #    缺行的结果去算分（分母变小、分数虚高，且没人知道发生过什么）；
+    # 2. 10-16 那次两个 run_inference 并发写同一个文件，2545 行里 191 个重复 id
+    #    —— 截断是开的、append 是各自持有的，交错了。
+    partial_path = result_dir / "submission.jsonl.partial"
+    partial_path.write_text("", encoding="utf-8")
     latencies: list[float] = []
     predictions: list[dict[str, Any]] = []
     parse_failure_ids: list[str] = []
+    failed_ids: list[str] = []
     generation = dict(config["generation"])
     # 可选的最小生成长度开关（纯加法，默认行为与官方原件完全一致）。
     #
@@ -584,54 +598,90 @@ def main() -> None:
         wiring.log_wiring()
         system_prompt = wiring.compose_system_prompt(official_prompt)
     else:
+        # 静默退回官方基线是这里最贵的失败模式：日志看起来完全正常，
+        # 但队友的提示词与 RAG 全都没生效。必须留一行看得见的痕迹。
+        print(
+            f"[warn] wiring 导入失败，本次退回官方基线（提示词与 RAG 都不生效）：{WIRING_IMPORT_ERROR}",
+            flush=True,
+        )
         system_prompt = official_prompt
 
+    # 画像策略也不许静默：它会改掉三个维度的输出，而日志里原本看不出开了没开。
+    _profile_mode = profile_mode()
+    print(
+        f"[profile] mode={_profile_mode} priors="
+        f"{json.dumps(PROFILE_FLOOR_DEFAULTS, ensure_ascii=False, sort_keys=True)}",
+        flush=True,
+    )
+
     for index, sample in enumerate(samples, 1):
-        if wiring is not None:
-            # 依次尝试 rag.fusion.build_messages（含 rag.retrieve 检索），
-            # 任何一步失败都退回官方组包。
-            messages = wiring.build_messages(sample, system_prompt, conversation_text)
-        else:
-            messages = [{"role": "system", "content": system_prompt}, {"role": "user", "content": conversation_text(sample)}]
         started = time.perf_counter()
-        # 输出塌陷重试：模型偶发只吐画像三数组或干脆输出 {}，此时 response_text 与
-        # emotion_label 都是空的，两项一起判错。重试一次、追加一条硬约束提醒，比换提示词便宜得多。
-        attempts = 1 + max(0, SCHEMA_RETRY)
-        for attempt in range(attempts):
-            if attempt:
-                messages = messages + [{"role": "user", "content": SCHEMA_REMINDER}]
-            if backend == "transformers":
-                prompt = tokenizer.apply_chat_template(messages, tokenize=False, add_generation_prompt=True)
-                synchronize(torch)
-                inputs = tokenizer(prompt, return_tensors="pt")
-                input_device = next(model.parameters()).device
-                inputs = {name: tensor.to(input_device) for name, tensor in inputs.items()}
-                with torch.inference_mode():
-                    if _gen_cfg is not None:
-                        # 走 GenerationConfig：把模型自带的 eos/pad 等设置一起带上，
-                        # 只覆盖 generation 里显式给的键 + min_new_tokens。
-                        output_ids = model.generate(**inputs, generation_config=_gen_cfg)
-                    else:
-                        output_ids = model.generate(**inputs, **generation)
-                generated = output_ids[0, inputs["input_ids"].shape[1]:]
-                decoded = tokenizer.decode(generated, skip_special_tokens=True)
+        prediction: dict[str, Any] = {}
+        parse_failed = False
+        try:
+            if wiring is not None:
+                # 依次尝试 rag.fusion.build_messages（含 rag.retrieve 检索），
+                # 任何一步失败都退回官方组包（wiring 那边会记降级台账）。
+                messages = wiring.build_messages(sample, system_prompt, conversation_text)
             else:
-                decoded = request_chat_completion(config, messages, generation)
-            prediction, parse_failed = parse_prediction(sample["id"], decoded)
-            if not needs_schema_retry(prediction, parse_failed) or attempt + 1 >= attempts:
-                break
+                messages = [{"role": "system", "content": system_prompt}, {"role": "user", "content": conversation_text(sample)}]
+            # 输出塌陷重试：模型偶发只吐画像三数组或干脆输出 {}，此时 response_text 与
+            # emotion_label 都是空的，两项一起判错。重试一次、追加一条硬约束提醒，比换提示词便宜得多。
+            attempts = 1 + max(0, SCHEMA_RETRY)
+            for attempt in range(attempts):
+                if attempt:
+                    messages = messages + [{"role": "user", "content": SCHEMA_REMINDER}]
+                if backend == "transformers":
+                    prompt = tokenizer.apply_chat_template(messages, tokenize=False, add_generation_prompt=True)
+                    synchronize(torch)
+                    inputs = tokenizer(prompt, return_tensors="pt")
+                    input_device = next(model.parameters()).device
+                    inputs = {name: tensor.to(input_device) for name, tensor in inputs.items()}
+                    with torch.inference_mode():
+                        if _gen_cfg is not None:
+                            # 走 GenerationConfig：把模型自带的 eos/pad 等设置一起带上，
+                            # 只覆盖 generation 里显式给的键 + min_new_tokens。
+                            output_ids = model.generate(**inputs, generation_config=_gen_cfg)
+                        else:
+                            output_ids = model.generate(**inputs, **generation)
+                    generated = output_ids[0, inputs["input_ids"].shape[1]:]
+                    decoded = tokenizer.decode(generated, skip_special_tokens=True)
+                else:
+                    decoded = request_chat_completion(config, messages, generation)
+                prediction, parse_failed = parse_prediction(sample["id"], decoded)
+                if not needs_schema_retry(prediction, parse_failed) or attempt + 1 >= attempts:
+                    break
+            if backend == "transformers":
+                synchronize(torch)
+        except Exception as exc:  # noqa: BLE001
+            # 单条失败不能带走整批：写一条合规的空占位，让后面 2000 多条继续跑，
+            # 同时把 id 记进 failed_ids / performance_report.json。
+            failed_ids.append(sample["id"])
+            parse_failed = True
+            print(
+                f"[{index}/{len(samples)}] {sample['id']}: [warn] 推理失败，已写空占位 "
+                f"{type(exc).__name__}: {exc}",
+                flush=True,
+            )
+            prediction = normalize_prediction(sample["id"], {})
         if parse_failed:
             parse_failure_ids.append(sample["id"])
-        if backend == "transformers":
-            synchronize(torch)
         elapsed_ms = (time.perf_counter() - started) * 1000
         if index <= config["performance_rounds"]:
             latencies.append(elapsed_ms)
         predictions.append(prediction)
-        with submission_path.open("a", encoding="utf-8") as handle:
+        with partial_path.open("a", encoding="utf-8") as handle:
             handle.write(json.dumps(prediction, ensure_ascii=False, separators=(",", ":")) + "\n")
         print(f"[{index}/{len(samples)}] {sample['id']}: {elapsed_ms:.3f} ms", flush=True)
 
+    # 全部写完才原子改名：中途崩掉时 submission.jsonl 不会出现半截文件，
+    # 只会留下一个看得见的 .partial。
+    os.replace(partial_path, submission_path)
+
+    # 空回复单独计数：parse_failure 只覆盖「解不出 JSON」，解出来了但 response_text
+    # 是空串的样本不会进 parse_failure_ids，却是实打实的 0 分。
+    empty_response_ids = [p["id"] for p in predictions if not p.get("response_text")]
+    wiring_stats = wiring.fallback_stats() if wiring is not None else {"counts": {}, "reasons": {}, "total": 0}
     report = {
         **backend_report,
         "backend": backend,
@@ -648,12 +698,41 @@ def main() -> None:
         "test_file_sha256": sha256(test_file),
         "submission_sha256": sha256(submission_path),
         "samples": len(predictions),
+        "samples_expected": len(samples),
         "parse_failure_count": len(parse_failure_ids),
         "parse_failure_ids": parse_failure_ids,
+        "empty_response_count": len(empty_response_ids),
+        "empty_response_ids": empty_response_ids,
+        "failed_count": len(failed_ids),
+        "failed_ids": failed_ids,
+        "wiring_import_error": WIRING_IMPORT_ERROR,
+        "wiring_fallbacks": wiring_stats,
+        "profile_mode": _profile_mode,
+        "profile_priors": dict(PROFILE_FLOOR_DEFAULTS),
     }
     (result_dir / "performance_report.json").write_text(json.dumps(report, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
-    print(f"PASS: {submission_path}")
-    print(f"PASS: {result_dir / 'performance_report.json'}")
+
+    if wiring is not None:
+        wiring.log_fallback_summary()
+
+    # 结尾不再无条件打印 PASS。三个条件任意一个不满足就 WARN，并说清楚差在哪：
+    # 半截结果 + 一句 PASS 是「日志正常、分数变低」这类问题的标准开头。
+    problems: list[str] = []
+    if len(predictions) != len(samples):
+        problems.append(f"写了 {len(predictions)} 条，输入 {len(samples)} 条")
+    if failed_ids:
+        problems.append(f"{len(failed_ids)} 条推理抛异常（写了空占位）")
+    if parse_failure_ids:
+        problems.append(f"{len(parse_failure_ids)} 条解析失败")
+    if empty_response_ids:
+        problems.append(f"{len(empty_response_ids)} 条空回复")
+    if problems:
+        print(f"WARN: 结果可用但有缺口 —— {'；'.join(problems)}", flush=True)
+        print(f"WARN: {submission_path}", flush=True)
+        print(f"WARN: {result_dir / 'performance_report.json'}", flush=True)
+    else:
+        print(f"PASS: {submission_path}")
+        print(f"PASS: {result_dir / 'performance_report.json'}")
 
 
 if __name__ == "__main__":
