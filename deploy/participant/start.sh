@@ -61,6 +61,12 @@ fi
 if [[ "$BACKEND" == "transformers" ]]; then
   echo "后端: transformers（直接加载本地模型）"
   export EVALUATION_BACKEND="transformers"
+  # 官方模板的 configs/inference_config.json 把 hardware_label 写死成
+  # "migu-aigpu-rtx4090-1card"，这个字符串会被原样写进 performance_report.json。
+  # 但我们从没在咪咕上跑过（见 docs/platform-log/），写死一个没跑过的卡型等于在
+  # 交付物里写一句假话，专家评审对照平台运行记录就会发现对不上。这里统一用宿主机名，
+  # 跑到哪台机器上就记哪台，不需要人维护；需要固定标签时仍可用环境变量覆盖。
+  export EVALUATION_HARDWARE_LABEL="${EVALUATION_HARDWARE_LABEL:-$(hostname)}"
   exec "$PYTHON_CMD" "$SCRIPT_DIR/run_inference.py" "$TEST_FILE" "$RESULT_DIR"
 fi
 

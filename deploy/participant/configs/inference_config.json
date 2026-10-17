@@ -16,5 +16,5 @@
     "top_p": 1.0
   },
   "performance_rounds": 100,
-  "hardware_label": "migu-aigpu-rtx4090-1card"
+  "hardware_label": "unspecified"
 }
