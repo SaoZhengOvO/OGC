@@ -28,7 +28,8 @@ from pathlib import Path
 REPO_ROOT = Path(__file__).resolve().parents[2]
 
 # (目标目录内的相对路径, 仓库内的来源路径, 说明, 是否必需)
-ITEMS: tuple[tuple[str, str, str, bool], ...] = (
+# 来源路径可以写成元组，表示「按顺序找第一个存在的」。
+ITEMS: tuple[tuple[str, str | tuple[str, ...], str, bool], ...] = (
     ("01-technical-plan.md", "docs/reports/technical-plan.md", "技术方案", True),
     ("02-experiments.md", "docs/reports/experiments.md", "实验设计与结果", True),
     ("03-reproduce.md", "docs/reports/reproduce.md", "复现步骤", True),
@@ -36,7 +37,16 @@ ITEMS: tuple[tuple[str, str, str, bool], ...] = (
     ("05-data-quality/dataset_summary.json", "data/reports/dataset_summary.json", "数据规模", True),
     ("05-data-quality/train_quality.json", "data/reports/train_quality.json", "训练集质量", True),
     ("05-data-quality/val_quality.json", "data/reports/val_quality.json", "验证集质量", True),
-    ("06-leaderboard.tsv", "runs/leaderboard.tsv", "评测台账（由 eval_loop.py 追加）", False),
+    # runs/ 被 .gitignore 排除，而 eval_loop.py 只往**跑评测那台机器**的 runs/ 追加。
+    # 于是在 CI（全新 checkout）里这个文件根本不存在，镜像里的专家评审材料会缺台账 ——
+    # 2026-10-17 就是这样：报告里写着 0.404，能拿给评审看的那张表却停在 0.255。
+    # 因此优先用本机最新的 runs/leaderboard.tsv，没有就退回仓库里的快照。
+    (
+        "06-leaderboard.tsv",
+        ("runs/leaderboard.tsv", "docs/reports/leaderboard.tsv"),
+        "评测台账（由 eval_loop.py 追加，仓库快照兜底）",
+        True,
+    ),
     ("08-code-review.md", "docs/reports/code-review.md", "代码规范巡检结论", False),
 )
 
@@ -69,13 +79,14 @@ def collect(out_dir: Path) -> tuple[list[tuple[str, str, int, str]], list[str], 
     missing: list[str] = []
     required_missing = 0
     for target_name, source_name, description, required in ITEMS:
-        source = REPO_ROOT / source_name
-        if not source.is_file():
+        candidates = (source_name,) if isinstance(source_name, str) else tuple(source_name)
+        source = next((REPO_ROOT / name for name in candidates if (REPO_ROOT / name).is_file()), None)
+        if source is None:
             tag = "[缺]" if required else "[可选未生成]"
             if required:
                 required_missing += 1
             missing.append(
-                f"{tag} {target_name}  <-  {source_name}  （{description}）"
+                f"{tag} {target_name}  <-  {' 或 '.join(candidates)}  （{description}）"
             )
             continue
         target = out_dir / target_name
