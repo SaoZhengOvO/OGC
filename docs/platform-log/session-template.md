@@ -1,16 +1,16 @@
 # 上机记录 · YYYY-MM-DD · <主题>
 
-> 复制本文件到 `docs/platform-log/YYYY-MM-DD-<主题>/README.md`，逐项填。
+> 复制本文件到 `docs/platform-log/<migu|modelscope-amd>/YYYY-MM-DD-<主题>/README.md`，逐项填。
 > **留空的项要在「未完成项」里说明原因**——空着不写等于没有记录。
 
 ## 一、基本信息
 
 | 项 | 值 |
 |---|---|
-| 平台 | 咪咕仝学 <https://aigpu.migu.cn> |
+| 平台 | ☐ 咪咕仝学 <https://aigpu.migu.cn>　☐ 魔搭 AMD MI300X　☐ 其他 |
 | 日期 / 起止时间 |  |
 | 操作人 |  |
-| 卡型 / 卡数 | RTX 4090 × N |
+| 算力规格 | 咪咕：RTX 4090 ×N / **无卡模式(CPU)**　魔搭：MI300X ×1 (192 GB) |
 | 使用镜像 |  |
 | 代码版本（commit） | `git rev-parse HEAD` → |
 | 本次目标（一句话） |  |
@@ -44,7 +44,7 @@
 | 项 | 数值 |
 |---|---|
 | 实际运行时长 |  |
-| 卡时消耗 |  |
+| 资源消耗 | 咪咕有卡：__ 卡时 / __ AIQ　咪咕无卡：__ 小时（CPU）　魔搭：__ 小时 |
 | 结束后余额/剩余券 |  |
 | 是否已关机 | ☐ 是 ☐ 否 —— **必须是「是」** |
 
@@ -55,7 +55,7 @@
 | 1 | 实例创建/启动页（卡型、镜像、时间） | `screenshots/01-instance.png` | ☐ |
 | 2 | 终端跑起来（命令、时间、进度） | `screenshots/02-running.png` | ☐ |
 | 3 | 跑完的结果 | `screenshots/03-result.png` | ☐ |
-| 4 | 卡时消耗页 | `screenshots/04-quota.png` | ☐ |
+| 4 | 资源消耗页（卡时/AIQ，或 CPU 时长） | `screenshots/04-quota.png` | ☐ |
 | 5 | 关机确认 | `screenshots/05-shutdown.png` | ☐ |
 
 ## 七、结论
