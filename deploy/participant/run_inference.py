@@ -431,6 +431,28 @@ def main() -> None:
             _min_new_tokens = min(_min_new_tokens, _max_new_tokens)
         generation["min_new_tokens"] = _min_new_tokens
 
+    # transformers 5.x 把 min_new_tokens 从 generate() 的签名里删掉了：
+    #   inspect.signature(GenerationMixin.generate) 里没有它
+    # 所以 `model.generate(**inputs, **generation)` 会把它当未知 kwargs **静默丢弃**，
+    # 实测 min_new_tokens=200 仍能产出 52 字的回复。它现在只能走 GenerationConfig。
+    # 下面只在开关打开时才切路径，默认（不设环境变量）行为与之前逐字节一致。
+    _gen_cfg = None
+    if _min_new_tokens > 0:
+        try:
+            import copy as _copy
+
+            _gen_cfg = _copy.deepcopy(model.generation_config)
+            for _key, _value in generation.items():
+                try:
+                    setattr(_gen_cfg, _key, _value)
+                except Exception:
+                    pass
+            _gen_cfg.min_new_tokens = _min_new_tokens
+        except Exception as exc:  # 拿不到 generation_config 就退回老路径
+            print(f"[warn] min_new_tokens 无法经 GenerationConfig 生效，已忽略：{exc}")
+            _gen_cfg = None
+            generation.pop("min_new_tokens", None)
+
     official_prompt = SYSTEM_PROMPT.format(
         emotions=", ".join(EMOTIONS),
         personality=", ".join(sorted(PROFILE_LABELS["personality_traits"])),
@@ -459,7 +481,12 @@ def main() -> None:
             input_device = next(model.parameters()).device
             inputs = {name: tensor.to(input_device) for name, tensor in inputs.items()}
             with torch.inference_mode():
-                output_ids = model.generate(**inputs, **generation)
+                if _gen_cfg is not None:
+                    # 走 GenerationConfig：把模型自带的 eos/pad 等设置一起带上，
+                    # 只覆盖 generation 里显式给的键 + min_new_tokens。
+                    output_ids = model.generate(**inputs, generation_config=_gen_cfg)
+                else:
+                    output_ids = model.generate(**inputs, **generation)
             generated = output_ids[0, inputs["input_ids"].shape[1]:]
             decoded = tokenizer.decode(generated, skip_special_tokens=True)
         else:
