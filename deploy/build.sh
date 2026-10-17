@@ -20,6 +20,9 @@ DEPLOY="$REPO_ROOT/deploy"
 CONTEXT="$DEPLOY/dist/context"
 IMAGE_TAG="${IMAGE_TAG:-ogc-participant:latest}"
 BASE_IMAGE="${BASE_IMAGE:-ubuntu:22.04}"
+# 队名：官方要求专家评审材料放在 /root/AI技术赛道-数字人综合情感对话模型-<队名>/
+# （GivenData/README.md:33-36）。报名名称定了就改这里，或 `TEAM_NAME=xxx bash deploy/build.sh`。
+TEAM_NAME="${TEAM_NAME:-OGC}"
 # INSTALL_TORCH=1 自己装 torch（ubuntu 路线）；
 # 基座镜像已带 torch 时设 0，只补 transformers 那一层。
 INSTALL_TORCH="${INSTALL_TORCH:-1}"
@@ -154,6 +157,28 @@ fi
 if [ -z "$(ls -A "$CONTEXT/rag" 2>/dev/null)" ]; then
   echo "  [注意] rag/ 为空 —— 镜像不带检索，组包走官方版（合规，但少了记忆融合）。"
   : > "$CONTEXT/rag/.keep"
+fi
+
+# 专家评审材料（方案完整性 10 + 代码规范性 10 + 平台运行记录 10 的证据）。
+# 官方原文（GivenData/README.md:33-36）：这些资料要「打包，放到提交的镜像里，
+# 存放路径为 /root 下，命名为 AI技术赛道-数字人综合情感对话模型-<队名>」。
+# 注意这里是**硬性物料要求**，不是建议：评审读的是镜像里的那个文件夹，仓库里写得再全也没用。
+REVIEW_DIR_NAME="AI技术赛道-数字人综合情感对话模型-${TEAM_NAME}"
+rm -rf "$CONTEXT/review"
+mkdir -p "$CONTEXT/review/$REVIEW_DIR_NAME"
+PY_BIN=""
+command -v python3 >/dev/null 2>&1 && PY_BIN="python3"
+[ -z "$PY_BIN" ] && command -v python >/dev/null 2>&1 && PY_BIN="python"
+if [ -n "$PY_BIN" ]; then
+  if ( cd "$REPO_ROOT" && "$PY_BIN" docs/reports/pack_review.py --team "$TEAM_NAME" \
+        --out "$CONTEXT/review/$REVIEW_DIR_NAME" ) 2>&1 | sed 's/^/  /'; then
+    echo "  专家评审材料：$(find "$CONTEXT/review/$REVIEW_DIR_NAME" -type f | wc -l | tr -d ' ') 个文件 -> /root/$REVIEW_DIR_NAME/"
+  else
+    echo "  [警告] 专家评审材料必需项缺失 —— 见上面 [缺] 行。先跑："
+    echo "         $PY_BIN docs/reports/pack_review.py --team $TEAM_NAME --out deploy/dist/review-package"
+  fi
+else
+  echo "  [警告] 找不到 python，专家评审材料未打包（镜像里会缺 /root/$REVIEW_DIR_NAME）"
 fi
 
 # 模型权重：优先硬链接（同盘瞬间完成、不额外占空间），失败退回完整复制

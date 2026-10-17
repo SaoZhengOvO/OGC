@@ -131,5 +131,12 @@ COPY rag/ /root/rag/
 COPY offline_check.sh /opt/offline_check.sh
 RUN chmod +x /root/participant/start.sh /opt/offline_check.sh 2>/dev/null || true
 
+# 专家评审材料。官方硬性要求（GivenData/README.md:33-36）：技术方案、实验设计、报告、
+# 平台运行记录要「打包，放到提交的镜像里，存放路径为 /root 下，命名为
+# AI技术赛道-数字人综合情感对话模型-<队名>」。
+# build.sh 已把该目录名带上队名建在 review/ 下，这里整目录落到 /root 即可
+# —— 这样队名是构建期决定的，Dockerfile 不用跟着改。
+COPY review/ /root/
+
 # 故意不写 CMD/ENTRYPOINT：组委会按官方约定的命令启动，不是按我们的默认命令。
 WORKDIR /root
