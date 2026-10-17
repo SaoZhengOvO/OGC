@@ -228,7 +228,8 @@ src/validate_submission.py:66  ValidationResult
 静态检查只能证明「有没有写」，不能证明「写得对不对」。以下**未覆盖**：
 
 - 逻辑正确性、边界条件、并发与性能
-- 测试是否真能抓住回归（114 个测试全绿，但测试本身的强度未经评估）
+- 测试是否真能抓住回归（截至 2026-10-17 为 162 个测试全绿，但测试本身的强度未经评估；
+  另外注意别用 `unittest discover` 替代 `pytest`，它少收集 18 条却照样报 OK）
 - 命名是否达意、注释与代码是否一致
 - `docs/` 下的非 Python 文件（markdown 的数字一致性由 `docs/reports/pack_review.py` 另管）
 

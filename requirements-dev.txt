@@ -1,0 +1,7 @@
+# 开发依赖（只在跑测试时需要；镜像里不需要，也就没并进 deploy/participant/requirements.txt）
+#
+# 为什么单独一个文件：`python -m unittest discover -s tests` 会报 “Ran 144 tests ... OK”，
+# 但实际有 162 条 —— 用 pytest fixture（tmp_path / capsys / monkeypatch）写的用例 unittest
+# 根本收集不到。于是「测试全绿」这句话在 unittest 下是**局部为真**：18 条从未执行过。
+# 所以把跑测试的命令统一成 pytest，并把 pytest 写进这里，避免下一个人拿不到。
+pytest>=8

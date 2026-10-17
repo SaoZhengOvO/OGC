@@ -1,4 +1,4 @@
-﻿# 复现指南：从裸机到产出提交文件
+# 复现指南：从裸机到产出提交文件
 
 > 作者：角色⑤B（专家评审文档）。对应官方评分项「专家评审 — 代码规范性（10 分）」。
 > 本文的命令分三类，**每类都标了它到底有没有真跑过**：
@@ -150,8 +150,13 @@ python src\cli.py build
 ## 五、自测与规范检查
 
 ```powershell
-.venv\Scripts\python.exe -m unittest discover -s tests
-# 期望：Ran 115 tests ... OK（数字随开发增长，关键是 OK）
+.venv\Scripts\python.exe -m pip install -r requirements-dev.txt   # 只装 pytest，镜像不需要
+.venv\Scripts\python.exe -m pytest
+# 期望：162 passed, 14 subtests passed（数字随开发增长，关键是 passed 且 0 failed）
+
+# 不要用 `python -m unittest discover -s tests` 代替：它只收集到 144 条并报 "OK"，
+# 而用 pytest fixture（tmp_path / capsys / monkeypatch）写的 18 条它根本收集不到 ——
+# 「测试全绿」在 unittest 下是局部为真。2026-10-17 实测就是这个差值。
 
 .venv\Scripts\python.exe docs\reports\audit_code.py
 # 代码规范性巡检：模块 docstring / 类型标注 / 写死路径 / 中文标识符 /
