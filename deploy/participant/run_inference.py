@@ -409,6 +409,27 @@ def main() -> None:
     predictions: list[dict[str, Any]] = []
     parse_failure_ids: list[str] = []
     generation = dict(config["generation"])
+    # 可选的最小生成长度开关（纯加法，默认行为与官方原件完全一致）。
+    #
+    # 为什么需要它：BLEU-4 带简短惩罚 exp(1 - 参考长度/候选长度)，全量实测候选
+    # 221,476 token / 参考 310,061 token → BP 只有 0.6703，也就是说光「写太短」
+    # 就吃掉了 33% 的 BLEU-4。而 prompt 层面压不动长度（v4 明写「200 到 350 字」，
+    # 实测中位 89 字），所以只能从解码侧验证。
+    #
+    # 用法：设 PARTICIPANT_MIN_NEW_TOKENS=120 做扫描；不设 = 0 = 今天的行为。
+    # 非法值一律忽略；且不超过 max_new_tokens，避免 transformers 报参数冲突。
+    # 这条开关只进 `generation` 字典，所以 transformers 后端生效；
+    # OpenAI 兼容后端的 api_generation_options() 会把它过滤掉，不会发给服务器。
+    _min_new_tokens = 0
+    try:
+        _min_new_tokens = int(os.environ.get("PARTICIPANT_MIN_NEW_TOKENS", "0") or 0)
+    except (TypeError, ValueError):
+        _min_new_tokens = 0
+    _max_new_tokens = generation.get("max_new_tokens")
+    if _min_new_tokens > 0:
+        if isinstance(_max_new_tokens, int) and _max_new_tokens > 0:
+            _min_new_tokens = min(_min_new_tokens, _max_new_tokens)
+        generation["min_new_tokens"] = _min_new_tokens
 
     official_prompt = SYSTEM_PROMPT.format(
         emotions=", ".join(EMOTIONS),
