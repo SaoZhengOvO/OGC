@@ -45,6 +45,35 @@ python tools/score_submission.py --submission runs/xxx/submission.jsonl --refere
 「去重 / 行数 / 唯一 id / 冲突数」单独打出来。拿到别人给的 submission、或者怀疑
 分数不对劲想复查时用这个。
 
+### `merge_leaderboard.py`
+
+合并多台机器的评测台账。`runs/` 被 `.gitignore` 排除，而 `eval_loop.py` 只往**跑评测
+那台机器**的 `runs/leaderboard.tsv` 追加 —— 大规模评测都在别处跑，本地台账就会一直停在
+很早的一行。
+
+```bash
+python tools/merge_leaderboard.py tmp/leaderboard-local.tsv tmp/leaderboard-box.tsv --out runs/leaderboard.tsv
+```
+
+按 `(time, tag)` 去重union，只合并不造行；两个文件列数对不上直接报错退出，不会静默丢列。
+合并结果复制一份到 `docs/reports/leaderboard.tsv` 入库，`docs/reports/pack_review.py`
+在没有本机台账时用它兜底 —— 否则 CI 里全新 checkout 打出来的评审包里根本没有台账。
+输出强制 LF：Windows 上 `write_text` 默认把 `\n` 翻成 `\r\n`，混进台账后 Linux 的
+`cut -f` 会把回车一起切进分数字段。
+
+### `inspect_image_tar.py`
+
+不 load 镜像就能检查 `docker save` 出来的 tar：层数、总大小、有没有 .pyc/.git，
+以及一个可选的路径存在性清单。
+
+```bash
+python tools/inspect_image_tar.py dist/ogc-participant-OGC.tar.gz \
+  --expect /root/participant/start.sh --expect '/root/AI技术赛道-数字人综合情感对话模型-OGC/01-technical-plan.md' \
+  --json dist/image-inspect.json
+```
+
+用来回答「镜像里到底有没有评审材料、有没有把 venv 打进层」。
+
 ---
 
 ## 补算（不重跑模型）
