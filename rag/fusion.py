@@ -300,6 +300,23 @@ def _usable_retrieved(retrieved: Any, sample: dict) -> tuple[list[dict], int]:
     return kept, dropped
 
 
+RETRIEVED_PLACEMENT_FLAG = "PARTICIPANT_RETRIEVED_IN_SYSTEM"
+
+
+def _retrieved_in_system() -> bool:
+    """检索块放 system（默认）还是放 user 段末尾。
+
+    A/B 证据（2026-10-17，n=200 同批）：放 user 段末尾时，检索块紧贴目标轮，
+    模型把「别人的经历」当成「这个人刚说的」，情绪 Acc 从 0.310 掉到 0.255
+    （McNemar p=0.0817，22 丢 / 11 得）。放到 system 里它变成背景参考，
+    不再和目标轮争夺注意力。设 0 可退回旧行为，做对照用。
+    """
+    raw = os.environ.get(RETRIEVED_PLACEMENT_FLAG)
+    if raw is None:
+        return True
+    return raw.strip().lower() not in ("0", "false", "no", "off", "")
+
+
 def render_retrieved(items: list[dict]) -> str:
     """把检索参考渲染成一段，并明确写清「只学语气、不要照抄」。"""
     if not items:
@@ -528,7 +545,11 @@ def build_messages(
     parts = [render_conversation(sample, turns)]
     retrieved_block = render_retrieved(items)
     if retrieved_block:
-        parts.append(retrieved_block)
+        if _retrieved_in_system():
+            # 放进 system：模型读到它，但不会把它当成「用户刚说的话」。
+            prompt = prompt.rstrip() + "\n" + retrieved_block
+        else:
+            parts.append(retrieved_block)
     memories_block = render_memories(_extract_memories(sample))
     if memories_block:
         parts.append(memories_block)
