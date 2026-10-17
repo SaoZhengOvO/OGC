@@ -21,7 +21,7 @@ python tools/eval_loop.py --tag rescore --skip-inference --predictions runs/xxx/
 ```
 
 产物固定在 `runs/eval-<tag>/`：`val_input.jsonl`、`submission.jsonl`、`score.json`、
-以及追加到 `runs/leaderboard.csv` 的一行。
+以及追加到 `runs/leaderboard.tsv` 的一行。
 
 **它现在会做的事**（都是被真实事故逼出来的，不是提前设计）：
 
@@ -32,6 +32,25 @@ python tools/eval_loop.py --tag rescore --skip-inference --predictions runs/xxx/
   164 个 id 内容冲突，情绪分 0.4146 → 0.1619，而 schema 校验一条都没报。
 - `--limit` / `--offset` 时会把真值一起收窄成 `val_references_subset.jsonl`，
   否则分母永远是完整的 2354 条，分数会被严重低估。
+
+### `run_full_eval.sh`
+
+全量评测的**可断点续跑**外壳。`eval_loop.py` 自己不会续跑：它逐条 append 出
+`submission.jsonl`，进程一死就只剩半份，重来又是一整轮。
+
+```bash
+TAG=final-full CHUNK=300 bash tools/run_full_eval.sh
+# 断了就再跑同一条命令，已完成的块会打印 [跳过]
+```
+
+它按 `--offset` / `--limit` 把全量切成若干块，每块跑完立刻把 `submission.jsonl`
+复制到 `runs/<TAG>-parts/<offset>.jsonl`；全部块到齐后 `cat` 合并，再用
+`--skip-inference` 统一打一次分，产物落 `runs/eval-<TAG>/`。
+
+**等价性是验证过的**：拿 `runs/eval-baseline` 的 2354 行 submission 切成 8 块再合并重打分，
+`score.json` 里所有数值键与原来逐字段相同，只有 `_caveat` 文本和新增的官方口径键不同
+（那是评分器版本差异，不是分块造成的）。能这样等价，是因为 `--limit/--offset` 收窄真值
+时是按 **id** 匹配（`write_reference_subset`），不是按行号切片。
 
 ### `score_submission.py`
 
