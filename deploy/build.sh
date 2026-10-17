@@ -112,7 +112,15 @@ fi
 #      `if` 判假，于是照样打印「行尾检查通过」——检查本身失败却看起来通过了。
 # 改成 globstar + nullglob + 不带 -P 的 `$'\r'`，并单独把「grep 自身报错」判成失败。
 shopt -s globstar nullglob
-sh_files=("$CONTEXT"/participant/*.sh "$CONTEXT"/participant/**/*.sh)
+# 去重：globstar 下 `**/` 可以匹配零层目录，`participant/*.sh` 与 `participant/**/*.sh`
+# 会重复列出顶层脚本。顺手用 sort -u 收敛，免得「N 个 .sh」这个数字虚高。
+mapfile -t sh_files < <(printf '%s\n' "$CONTEXT"/participant/*.sh "$CONTEXT"/participant/**/*.sh | sort -u)
+if [ "${#sh_files[@]}" -eq 0 ]; then
+  # 一个 .sh 都没有说明前面的 cp 就没对；而且下面 grep 没有文件名参数会去读 stdin，
+  # 在 CI 里就是直接挂住，还不如在这里立刻炸。
+  echo "构建中止：暂存目录里找不到任何 .sh 脚本（$CONTEXT/participant/*.sh）。" >&2
+  exit 1
+fi
 grep_rc=0
 crlf_hits="$(LC_ALL=C grep -l $'\r' "${sh_files[@]}" 2>/dev/null)" || grep_rc=$?
 if [ "$grep_rc" -ge 2 ]; then
