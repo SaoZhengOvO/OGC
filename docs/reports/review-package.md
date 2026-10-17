@@ -1,13 +1,13 @@
 # 专家评审材料包：清单与打包
 
 > 作者：角色⑤B（专家评审文档；同时持有角色①部署与评测）。对应官方评分项「专家评审 — 方案完整性（10 分）」与「平台运行记录（10 分）」。
-> **队名待定**：下方所有 `<队名>` 占位符在报名信息确认后替换。
+> **队名：`OGC`**（已确认）。目录名与打包参数都用这个值。
 > 官方要求（`GivenData/README.md`）：专家评审资料打包放进镜像 `/root` 下，
-> 目录命名 `AI技术赛道-数字人综合情感对话模型-<队名>`。
+> 目录命名 `AI技术赛道-数字人综合情感对话模型-OGC`。
 
 ## 一、材料清单
 
-`/root/AI技术赛道-数字人综合情感对话模型-<队名>/` 下应包含：
+`/root/AI技术赛道-数字人综合情感对话模型-OGC/` 下应包含：
 
 | 文件 | 来源 | 作用 | 状态 |
 |---|---|---|---|
@@ -41,7 +41,7 @@
 `MANIFEST.md`（含每个文件的 sha256 与字节数），**缺失的项会明确打印 `[缺]` 而不是静默跳过**。
 
 ```bash
-python docs/reports/pack_review.py --team <队名> --out deploy/dist/review-package
+python docs/reports/pack_review.py --team OGC --out deploy/dist/review-package
 ```
 
 生成后，把整个目录放进镜像的 `/root/` 下即可（`deploy/build.sh` 组装 context 时可直接拷贝）。
@@ -65,7 +65,7 @@ python docs/reports/pack_review.py --team <队名> --out deploy/dist/review-pack
 │   └── model/                          # Qwen2.5-3B-Instruct，约 5.8 GB
 ├── rag/                                # 角色④⑤A 的检索与融合
 │   ├── corpus/  index/  retrieve.py  memory.py  fusion.py
-└── AI技术赛道-数字人综合情感对话模型-<队名>/   # 本材料包
+└── AI技术赛道-数字人综合情感对话模型-OGC/   # 本材料包
     ├── MANIFEST.md
     ├── 01-technical-plan.md ...
     └── 07-platform-log/
