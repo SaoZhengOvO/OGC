@@ -40,11 +40,15 @@ echo "root:${ROOT_PW}" | chpasswd 2>/dev/null || true
 cat /mnt/workspace/.team-ssh/keys.pub > /root/.ssh/authorized_keys 2>/dev/null
 chmod 600 /root/.ssh/authorized_keys
 
-# ---- 4) 起 sshd（-p 22 显式指定，避免和 DSW 自带的那个抢）----
-if ! pgrep -f 'sshd -p 22' >/dev/null 2>&1; then
-  setsid nohup /usr/sbin/sshd -p 22 -D >/tmp/sshd22.log 2>&1 </dev/null &
+# ---- 4) 起 sshd：必须用 /usr/sbin/sshd ----
+# 坑（2026-10-17 踩到）：DSW 自带 /etc/dsw/runtime/bin/sshd -p 22 -D 也匹配 'sshd -p 22'，
+# 旧守卫误判「已在跑」直接跳过，端口被 DSW 的占着；而它不读 /etc/ssh/sshd_config，
+# PermitRootLogin yes 永远不生效 —— 队长的私钥能进、队友的密码进不去。
+pkill -f '/etc/dsw/runtime/bin/sshd' 2>/dev/null && sleep 2
+if ! pgrep -f '/usr/sbin/sshd -p 22' >/dev/null 2>&1; then
+  setsid nohup /usr/sbin/sshd -p 22 -D -o PermitRootLogin=yes -o PasswordAuthentication=yes >/tmp/sshd22.log 2>&1 </dev/null &
   sleep 2
-  pgrep -f 'sshd -p 22' >/dev/null 2>&1 && echo 'sshd-started' || echo 'sshd-MAYBE-FAILED'
+  pgrep -f '/usr/sbin/sshd -p 22' >/dev/null 2>&1 && echo 'sshd-started' || echo 'sshd-MAYBE-FAILED'
 fi
 
 # ---- 5) 起 frpc 隧道（地址固定 frp-rug.com:30817，队友不用改命令）----
