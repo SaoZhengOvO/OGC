@@ -19,6 +19,8 @@
 #   TOTAL    总条数（默认 2354）
 #   PROMPT_DIR 提示词目录（默认不传，用 eval_loop.py 自带的 prompts/）
 #   HARDWARE_LABEL 写进 performance_report.json 的硬件标签
+#   SEED     已有的半份 submission.jsonl（例如断电前跑出的 794 行）。给了就在开跑前
+#            把它按 CHUNK 切成 blocks，已覆盖的块直接跳过 —— 半份成果不用重跑。
 set -uo pipefail
 
 TAG="${TAG:-final-full}"
@@ -29,10 +31,32 @@ SOURCE="${SOURCE:-data/processed/val_samples.jsonl}"
 REFS="${REFS:-data/processed/val_references.jsonl}"
 PROMPT_DIR="${PROMPT_DIR:-}"
 HARDWARE_LABEL="${HARDWARE_LABEL:-mi300x-official-full}"
+SEED="${SEED:-}"
 
 cd "$(dirname "$0")/.." || exit 1
 PARTS="runs/$TAG-parts"
 mkdir -p "$PARTS"
+
+# 把半份成果切成 blocks 当草稿：run_inference.py 是按 val_samples.jsonl 的顺序逐条处理的，
+# 所以一份被中断的 submission 一定是全量的**前缀**，前 floor(行数/CHUNK) 块是完整的。
+if [ -n "$SEED" ] && [ -s "$SEED" ] && [ -z "$(ls -A "$PARTS" 2>/dev/null)" ]; then
+  echo "=== 用 SEED 预热：$SEED ==="
+  "$PY" - "$SEED" "$PARTS" "$CHUNK" <<'PYEOF'
+import pathlib
+import sys
+
+seed, parts, chunk = pathlib.Path(sys.argv[1]), pathlib.Path(sys.argv[2]), int(sys.argv[3])
+rows = [ln for ln in seed.read_text(encoding="utf-8").splitlines() if ln.strip()]
+full = len(rows) // chunk
+for i in range(full):
+    start = i * chunk
+    (parts / ("%05d.jsonl" % start)).write_text(
+        "\n".join(rows[start : start + chunk]) + "\n", encoding="utf-8", newline="\n"
+    )
+print("SEED 共 %d 行 -> 预热出 %d 个完整块（%d 条），剩余 %d 条重跑"
+      % (len(rows), full, full * chunk, len(rows) - full * chunk))
+PYEOF
+fi
 
 common=(--source "$SOURCE" --references "$REFS" --hardware-label "$HARDWARE_LABEL")
 if [ -n "$PROMPT_DIR" ]; then common+=(--prompt-dir "$PROMPT_DIR"); fi
