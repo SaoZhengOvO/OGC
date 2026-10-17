@@ -42,3 +42,5 @@ pip-*/
 
 # torch 的 Inductor 编译器有时把缓存目录建在当前工作目录（如 torchinductor_<用户名>/）。
 torchinductor_*/
+# 本地临时取回的文件，不进版本库
+tmp/
