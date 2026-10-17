@@ -39,8 +39,8 @@ concurrency:
 
 jobs:
   build:
-    runs-on: ubuntu-latest
     timeout-minutes: 180
+    runs-on: ubuntu-latest
     steps:
       - name: 检出
         uses: actions/checkout@v4

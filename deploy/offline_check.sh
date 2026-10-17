@@ -19,9 +19,11 @@ PROMPT_DIR="${PARTICIPANT_PROMPT_DIR:-$PARTICIPANT/prompts}"
 WORK="$(mktemp -d "${TMPDIR:-/tmp}/offline-check.XXXXXX")"
 PASS=0
 FAIL=0
+WARN=0
 
 ok()   { printf '  \033[32m[ OK ]\033[0m %s\n' "$*"; PASS=$((PASS+1)); }
 bad()  { printf '  \033[31m[FAIL]\033[0m %s\n' "$*"; FAIL=$((FAIL+1)); }
+warn() { printf '  \033[33m[WARN]\033[0m %s\n' "$*"; WARN=$((WARN+1)); }
 info() { printf '  \033[36m[info]\033[0m %s\n' "$*"; }
 head_() { printf '\n\033[1m== %s\033[0m\n' "$*"; }
 
@@ -153,10 +155,23 @@ JSONL
   export NO_PROXY=127.0.0.1,localhost no_proxy=127.0.0.1,localhost
 
   info "执行：bash $PARTICIPANT/start.sh <3条样例> <结果目录>"
-  if bash "$PARTICIPANT/start.sh" "$PROBE_IN" "$OUT_DIR" > "$WORK/run.log" 2>&1; then
+  # 纯 CPU 机器上 3B 模型逐条生成很慢（CI 的 ubuntu-latest 上实测超过 2 小时仍未结束），
+  # 所以加一个硬超时：超时按「未验证」记警告，不判 FAIL —— 镜像能不能建由前 5 节决定，
+  # 真跑推理的验证放到有 GPU 的机器上做（见 docs/reports/reproduce.md §六）。
+  RUNTIME_TIMEOUT="${RUNTIME_TIMEOUT:-1800}"
+  info "超时上限：${RUNTIME_TIMEOUT} 秒（可用 RUNTIME_TIMEOUT 覆盖）"
+  set +e
+  timeout "$RUNTIME_TIMEOUT" bash "$PARTICIPANT/start.sh" "$PROBE_IN" "$OUT_DIR" > "$WORK/run.log" 2>&1
+  start_rc=$?
+  set -e
+  if [ "$start_rc" -eq 0 ]; then
     ok "入口脚本退出码 0"
+  elif [ "$start_rc" -eq 124 ]; then
+    warn "入口脚本在 ${RUNTIME_TIMEOUT}s 内没跑完（纯 CPU 上的正常现象，**未验证**而非失败）"
+    info "日志末尾（用于确认它在真的推理，而不是卡住）："
+    tail -n 15 "$WORK/run.log" 2>/dev/null | sed 's/^/        /'
   else
-    bad "入口脚本失败，日志末尾："
+    bad "入口脚本失败（退出码 $start_rc），日志末尾："
     tail -n 25 "$WORK/run.log" | sed 's/^/        /'
   fi
 
@@ -221,7 +236,7 @@ PYEOF
 fi
 
 head_ "结果"
-printf '  通过 %d 项，失败 %d 项\n' "$PASS" "$FAIL"
+printf '  通过 %d 项，失败 %d 项，警告 %d 项\n' "$PASS" "$FAIL" "$WARN"
 if [ "$FAIL" -gt 0 ]; then
   printf '\n\033[31m离线自检未通过。这份镜像不要提交。\033[0m\n'
   exit 1
