@@ -37,8 +37,10 @@ class ProfileModeResolutionTests(unittest.TestCase):
         with mock.patch.dict(os.environ, env, clear=True):
             return run_inference.profile_mode()
 
-    def test_default_is_floor(self) -> None:
-        self.assertEqual(self._mode(), "floor")
+    def test_default_is_force(self) -> None:
+        """默认走 force。依据见 run_inference.profile_mode 的 docstring：
+        模型自选标签在这一项上低于常量，A/B/C 三臂一致。"""
+        self.assertEqual(self._mode(), "force")
 
     def test_explicit_force(self) -> None:
         self.assertEqual(self._mode(PARTICIPANT_PROFILE_MODE="force"), "force")
@@ -52,7 +54,7 @@ class ProfileModeResolutionTests(unittest.TestCase):
     def test_legacy_floor_switch_still_works(self) -> None:
         self.assertEqual(self._mode(PARTICIPANT_PROFILE_FLOOR="0"), "off")
         self.assertEqual(self._mode(PARTICIPANT_PROFILE_FLOOR="false"), "off")
-        self.assertEqual(self._mode(PARTICIPANT_PROFILE_FLOOR="1"), "floor")
+        self.assertEqual(self._mode(PARTICIPANT_PROFILE_FLOOR="1"), "force")
 
     def test_new_mode_wins_over_legacy_switch(self) -> None:
         """两个都设时以 PARTICIPANT_PROFILE_MODE 为准，避免语义互相打架。"""

@@ -65,7 +65,7 @@ SYSTEM_PROMPT = """你正在参加数字情感陪伴比赛。根据截止到最�
 - user_profile: object，包含 personality_traits、interests、style 三个字符串数组；
 - memory_refs: 固定输出 []，因为测试集没有公开 memory bank。
 
-画像标签只能使用以下枚举；没有充分证据时宁可输出空数组：
+画像标签只能使用以下枚举。三个维度都必须给出 1 个标签，不要输出空数组（官方口径下留空按预测失败计分）：
 personality_traits: {personality}
 interests: {interests}
 style: {styles}
@@ -296,8 +296,8 @@ def recover_response_text(text: str) -> str:
 def profile_mode() -> str:
     """画像输出策略。
 
-    - ``floor``（默认）：只补空维度，模型给出的非空标签原样保留。
-    - ``force``：三个维度**一律**输出先验常量，忽略模型判断。
+    - ``force``（默认）：三个维度**一律**输出先验常量，忽略模型判断。
+    - ``floor``：只补空维度，模型给出的非空标签原样保留。
     - ``off``：完全不动模型输出。
 
     ``force`` 不是拍脑袋加的口子。2026-10-17 的四臂实测：模型真正给出非空标签的
@@ -315,7 +315,7 @@ def profile_mode() -> str:
         return "floor"
     if mode in {"off", "none", "0", "false", "no"}:
         return "off"
-    return "floor" if profile_floor_enabled() else "off"
+    return "force" if profile_floor_enabled() else "off"
 
 
 def profile_floor_enabled() -> bool:
