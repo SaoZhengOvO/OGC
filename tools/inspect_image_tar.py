@@ -36,6 +36,7 @@ import argparse
 import gzip
 import hashlib
 import json
+import re
 import sys
 import tarfile
 from pathlib import Path
@@ -68,18 +69,39 @@ def _norm(name: str) -> str:
     return name[2:] if name.startswith("./") else name
 
 
-def _is_layer(name: str) -> bool:
+_BLOB_LAYER = re.compile(r"^blobs/sha256/[0-9a-f]{64}$")
+
+
+def _is_layer(name: str, layer_names: set[str] | None = None) -> bool:
+    """判断外层 tar 里的这个成员是不是镜像层。
+
+    历史格式（docker save 老版本）用 `<id>/layer.tar` 或 `xxx.tar`，
+    新版本改用 OCI 布局：层是 `blobs/sha256/<digest>`，**没有 .tar 后缀**。
+    只按后缀判断会把 OCI 镜像判成 0 层 —— 这正是 2026-10-17 第一次拿真镜像
+    试跑时踩到的：所有检查项全 FAIL，看着像镜像坏了，其实是工具自己瞎了。
+
+    不能只靠 manifest.json 的 Layers 列表：`docker save` 会把 blobs/ 写在
+    manifest.json 前面，流式读到层的时候 manifest 还没出现。所以这里按
+    「blobs/sha256/<64 位十六进制>」这种形状先认成候选，真正是不是 tar
+    由 `_walk_layer` 打开来判（config blob 是 JSON，打不开就跳过）。
+    """
+    if layer_names and name in layer_names:
+        return True
+    if _BLOB_LAYER.match(name):
+        return True
     return name.endswith(".tar") or "/layer.tar" in name
 
 
-def _walk_layer(fileobj, *, collect: dict[str, dict], keep_bytes: set[str]) -> int:
-    """把一层当 tar 读，记录成员；需要比对的成员把内容抓出来。"""
+def _walk_layer(fileobj, *, collect: dict[str, dict], keep_bytes: set[str]) -> int | None:
+    """把一层当 tar 读，记录成员；需要比对的成员把内容抓出来。
+
+    不是 tar（比如 OCI 布局里的 config blob 是 JSON）返回 None，调用方据此跳过。
+    """
     count = 0
     try:
         inner = tarfile.open(fileobj=fileobj, mode="r|")
-    except tarfile.TarError as exc:  # pragma: no cover - 只有坏镜像才会走到
-        print(f"    [警告] 这一层读不成 tar：{exc}")
-        return 0
+    except tarfile.TarError:
+        return None
     for member in inner:
         count += 1
         key = _norm(member.name)
@@ -97,6 +119,20 @@ def _walk_layer(fileobj, *, collect: dict[str, dict], keep_bytes: set[str]) -> i
     return count
 
 
+def _manifest_layer_names(manifest) -> set[str]:
+    """从 manifest.json 里抽出所有层的成员名（含 ./ 前缀的归一化形式）。"""
+    names: set[str] = set()
+    if not isinstance(manifest, list):
+        return names
+    for entry in manifest:
+        if not isinstance(entry, dict):
+            continue
+        for layer in entry.get("Layers") or []:
+            if isinstance(layer, str):
+                names.add(_norm(layer))
+    return names
+
+
 def inspect(path: Path, *, expect_dir: Path | None) -> dict:
     result: dict = {
         "tar": str(path),
@@ -111,6 +147,7 @@ def inspect(path: Path, *, expect_dir: Path | None) -> dict:
     wanted = set(BYTE_COMPARE) 
     collect: dict[str, dict] = {}
     layer_index = 0
+    layer_names: set[str] = set()
 
     with gzip.open(path, "rb") as gz:
         outer = tarfile.open(fileobj=gz, mode="r|")
@@ -119,16 +156,21 @@ def inspect(path: Path, *, expect_dir: Path | None) -> dict:
             if name == "manifest.json":
                 payload = outer.extractfile(member).read()
                 result["manifest"] = json.loads(payload.decode("utf-8"))
+                layer_names = _manifest_layer_names(result["manifest"])
             elif name == "repositories":
                 continue
-            elif _is_layer(name):
+            elif _is_layer(name, layer_names):
                 handle = outer.extractfile(member)
                 if handle is None:
                     continue
                 before = len(collect)
-                _walk_layer(handle, collect=collect, keep_bytes=wanted)
+                members_in_layer = _walk_layer(handle, collect=collect, keep_bytes=wanted)
+                if members_in_layer is None:
+                    # 不是 tar（OCI 布局里的 config blob 就是 JSON），跳过
+                    continue
                 result["layers"].append(
                     {"index": layer_index, "name": name, "size": member.size,
+                     "members": members_in_layer,
                      "new_paths": len(collect) - before}
                 )
                 layer_index += 1
@@ -195,10 +237,24 @@ def inspect(path: Path, *, expect_dir: Path | None) -> dict:
 
 
 def main(argv=None) -> int:
-    parser = argparse.ArgumentParser(description="检查 docker save 出来的镜像 tar 内容")
+    # allow_abbrev=False 不能省：argparse 默认会把 `--expect` 当成 `--expect-dir` 的前缀缩写。
+    # 2026-10-17 第一次用真镜像验证时就栽在这里——我传了 `--expect /root/.../start.sh`，
+    # 它被解释成 `--expect-dir /root/.../start.sh`，于是逐字节比对全部报「本地没有这个文件」，
+    # 看着像镜像坏了，其实是我自己的参数被静默改写了。这类静默改写比报错危险得多。
+    parser = argparse.ArgumentParser(
+        description="检查 docker save 出来的镜像 tar 内容", allow_abbrev=False
+    )
     parser.add_argument("tar", help=".tar 或 .tar.gz")
     parser.add_argument("--expect-dir", default=None, help="与哪个目录逐字节比对（默认仓库根）")
-    parser.add_argument("--json-out", default=None, help="把完整报告写到这个路径")
+    parser.add_argument(
+        "--expect",
+        action="append",
+        default=[],
+        metavar="路径",
+        help="断言镜像里存在这个路径（可重复），例如 --expect /root/participant/start.sh",
+    )
+    parser.add_argument("--json-out", "--json", dest="json_out", default=None,
+                        help="把完整报告写到这个路径")
     args = parser.parse_args(argv)
 
     path = Path(args.tar)
@@ -208,6 +264,20 @@ def main(argv=None) -> int:
 
     print(f"检查 {path}（{path.stat().st_size / 1024**3:.2f} GB）……")
     result = inspect(path, expect_dir=expect_dir)
+
+    for want in args.expect:
+        key = _norm(want.lstrip("/")) if want.startswith("/") else _norm(want)
+        found = key in result["members"]
+        result["checks"].append(
+            {
+                "check": f"存在 {want}",
+                "ok": found,
+                "detail": (
+                    f"{result['members'][key]['size']} 字节" if found else "镜像里没有"
+                ),
+            }
+        )
+        result["ok"] = result["ok"] and found
 
     print(f"\nmanifest：{result['manifest']}")
     print(f"层数：{len(result['layers'])}")

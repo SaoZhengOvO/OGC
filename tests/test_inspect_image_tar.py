@@ -19,7 +19,7 @@ for candidate in (REPO_ROOT, REPO_ROOT / "src"):
     if str(candidate) not in sys.path:
         sys.path.insert(0, str(candidate))
 
-from tools.inspect_image_tar import BYTE_COMPARE, inspect  # noqa: E402
+from tools.inspect_image_tar import BYTE_COMPARE, inspect, main  # noqa: E402
 
 
 def _tar_bytes(files: dict[str, bytes]) -> bytes:
@@ -135,3 +135,72 @@ def test_byte_compare_records_image_sha(tmp_path: Path) -> None:
 
     expected = hashlib.sha256(_repo_bytes("prompts/response.md")).hexdigest()
     assert result["members"]["root/participant/prompts/response.md"]["sha256"] == expected
+
+
+def _oci_image(path: Path, *, layer_files: dict[str, bytes], layer_digest: str) -> Path:
+    """按新版 docker save 的 OCI 布局造镜像。
+
+    真镜像的两个特征都在这里复现：层名是 `blobs/sha256/<64 位十六进制>`（**没有 .tar
+    后缀**），而且 blobs 写在 manifest.json 前面 —— 流式读的时候，读到层时 manifest
+    还没出现。2026-10-17 就是因为这两点，检查一个完好镜像时报了 0 层、所有项全 FAIL。
+    """
+    layer = _tar_bytes(layer_files)
+    config_digest = "b" * 64
+    buf = io.BytesIO()
+    with tarfile.open(fileobj=buf, mode="w") as outer:
+
+        def add(name: str, payload: bytes) -> None:
+            info = tarfile.TarInfo(name)
+            info.size = len(payload)
+            outer.addfile(info, io.BytesIO(payload))
+
+        add(f"blobs/sha256/{layer_digest}", layer)
+        add(f"blobs/sha256/{config_digest}", b'{"architecture":"amd64","os":"linux"}')
+        add(
+            "manifest.json",
+            json.dumps(
+                [
+                    {
+                        "Config": f"blobs/sha256/{config_digest}",
+                        "RepoTags": ["ogc-participant:latest"],
+                        "Layers": [f"blobs/sha256/{layer_digest}"],
+                    }
+                ]
+            ).encode(),
+        )
+    path.write_bytes(gzip.compress(buf.getvalue()))
+    return path
+
+
+def test_oci_layout_layers_are_detected(tmp_path: Path) -> None:
+    """没有 .tar 后缀的层也要认出来。"""
+    digest = "a" * 64
+    image = _oci_image(tmp_path / "oci.tar.gz", layer_files=_good_layer(), layer_digest=digest)
+    result = inspect(image, expect_dir=REPO_ROOT)
+    assert [layer["name"] for layer in result["layers"]] == [f"blobs/sha256/{digest}"]
+    assert "root/participant/start.sh" in result["members"]
+
+
+def test_oci_config_blob_is_not_counted_as_a_layer(tmp_path: Path) -> None:
+    """config blob 也是 blobs/sha256/<hex>，但它是 JSON 不是 tar，不能算一层。"""
+    digest = "a" * 64
+    image = _oci_image(tmp_path / "oci.tar.gz", layer_files=_good_layer(), layer_digest=digest)
+    result = inspect(image, expect_dir=REPO_ROOT)
+    assert len(result["layers"]) == 1
+
+
+def test_expect_flag_is_honored_and_not_abbreviated(tmp_path: Path, capsys) -> None:
+    """`--expect` 不能被 argparse 当成 `--expect-dir` 的前缀缩写。
+
+    这一条是拿真镜像验证时踩出来的：当时传 `--expect /root/.../start.sh`，被解释成
+    `--expect-dir /root/.../start.sh`，于是每一行逐字节比对都报「本地没有这个文件」，
+    看着像镜像坏了，其实是参数被静默改写。
+    """
+    digest = "c" * 64
+    image = _oci_image(tmp_path / "oci.tar.gz", layer_files=_good_layer(), layer_digest=digest)
+
+    main([str(image), "--expect", "/root/participant/start.sh"])
+    assert "存在 /root/participant/start.sh" in capsys.readouterr().out
+
+    assert main([str(image), "--expect", "/root/根本不存在的路径"]) == 1
+    assert "/root/根本不存在的路径" in capsys.readouterr().out
