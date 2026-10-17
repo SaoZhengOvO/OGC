@@ -45,17 +45,34 @@ done
 [ "$crlf_bad" -eq 0 ] && ok "所有 .sh 都是 LF 行尾（可被 bash 正常解析）"
 
 head_ "2. 模型权重是否打进镜像"
-if [ -f "$PARTICIPANT/model/config.json" ]; then
-  ok "config.json 在"
-  weights="$(find "$PARTICIPANT/model" -maxdepth 1 -name '*.safetensors' | wc -l)"
-  if [ "$weights" -gt 0 ]; then
-    total="$(du -sh "$PARTICIPANT/model" | cut -f1)"
+# 镜像里权重必须在 $PARTICIPANT/model（官方按 model_path="./model" 相对解析）。
+# 但 `build.sh --stage-only` 的暂存目录是「构建上下文」布局：model/ 与 participant/ 平级，
+# Dockerfile 再把它 COPY 进 /root/participant/model。两个位置都认，本地才验得动。
+MODEL_DIR=""
+for cand in "$PARTICIPANT/model" "$CONTENT_ROOT/model"; do
+  [ -f "$cand/config.json" ] && { MODEL_DIR="$cand"; break; }
+done
+if [ -n "$MODEL_DIR" ]; then
+  ok "权重目录：$MODEL_DIR"
+  [ "$MODEL_DIR" = "$PARTICIPANT/model" ] \
+    || info "（构建上下文布局；Dockerfile 会把它 COPY 到 $PARTICIPANT/model）"
+  weights="$(find "$MODEL_DIR" -maxdepth 1 -name '*.safetensors' | wc -l | tr -d ' ')"
+  if [ "${weights:-0}" -gt 0 ]; then
+    # du 不一定有（精简过的宿主/容器里常见），退化成 find+awk 求和，别让体积那一栏空着。
+    if command -v du >/dev/null 2>&1; then
+      total="$(du -sh "$MODEL_DIR" 2>/dev/null | cut -f1)"
+    fi
+    if [ -z "${total:-}" ]; then
+      total="$(find "$MODEL_DIR" -maxdepth 1 -name '*.safetensors' -printf '%s\n' 2>/dev/null \
+        | awk '{s+=$1} END {if (NR) printf "%.2f GB", s/1073741824}')"
+    fi
+    [ -n "${total:-}" ] || total="(体积算不出，缺 du 与 find -printf)"
     ok "$weights 个 safetensors 分片，共 $total"
   else
     bad "没有 .safetensors —— 权重没打进镜像"
   fi
 else
-  bad "缺少 $PARTICIPANT/model/config.json —— 权重目录不对（必须是 $PARTICIPANT/model）"
+  bad "找不到 model/config.json（试过 $PARTICIPANT/model 与 $CONTENT_ROOT/model）"
 fi
 
 head_ "3. Python 与 torch"
@@ -81,17 +98,24 @@ fi
 
 head_ "4. 静态扫描：代码里有没有外部网络依赖"
 # 允许 127.0.0.1 / localhost（vLLM 本地服务）；其余外部主机一律报出来。
+# 只扫「代码」(.py/.sh)。语料/数据里的 URL 是待检索的文本内容，不会发起任何请求，
+# 上一版把它们当网络依赖报出来，是误报——评测时那只是一段字符串。
 mapfile -t hits < <(
-  grep -rInE 'https?://[^"'"'"' ]+' "$PARTICIPANT" "$CONTENT_ROOT/rag" 2>/dev/null \
-    | grep -vE '127\.0\.0\.1|localhost|0\.0\.0\.0|schema\.json|\.md:' \
-    | grep -vE '^\s*#' || true
+  find "$PARTICIPANT" "$CONTENT_ROOT/rag" -type f \( -name '*.py' -o -name '*.sh' \) 2>/dev/null \
+    | xargs grep -InE 'https?://[^"'"'"' ]+' 2>/dev/null \
+    | grep -vE '127\.0\.0\.1|localhost|0\.0\.0\.0|\$\{?[A-Z_]*HOST\}?' \
+    | grep -vE ':[0-9]+:[[:space:]]*#' || true
 )
 if [ "${#hits[@]}" -eq 0 ]; then
-  ok "没有指向外部主机的 URL"
+  ok "代码里没有指向外部主机的 URL"
 else
-  bad "发现疑似外部网络依赖（必须确认，否则断网评测会失败）："
+  bad "代码里有指向外部主机的 URL（必须确认，否则断网评测会失败）："
   printf '        %s\n' "${hits[@]:0:10}"
 fi
+# 数据文件里的 URL 单独报一行 info：不是网络依赖，但专家评审看到语料里带外链会提问，先点明。
+data_urls="$(find "$CONTENT_ROOT/rag" -type f \( -name '*.jsonl' -o -name '*.json' \) 2>/dev/null \
+  | xargs grep -lE 'https?://' 2>/dev/null | wc -l | tr -d ' ')"
+[ "${data_urls:-0}" -gt 0 ] && info "检索语料里有 $data_urls 个数据文件含 URL 文本（只是待检索文本，不会联网）"
 if grep -rInE 'pip install|huggingface_hub|snapshot_download' "$PARTICIPANT" 2>/dev/null \
      | grep -vE '\.md:|#' | head -5 | grep -q .; then
   bad "代码里出现 pip install / 在线下载调用"
