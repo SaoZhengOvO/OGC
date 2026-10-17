@@ -115,6 +115,25 @@ fi
 
 # 队友的检索/组包模块（角色④⑤）；没有就留空，wiring.py 会回退
 if [ -d "$REPO_ROOT/rag" ]; then
+  # 语料是 .gitignore 里挡掉的构建产物（rag/corpus/corpus.jsonl，约 17 MB），
+  # 从干净 clone 出来的机器上一定没有。这里不补建，镜像里的检索会静默退化成一堆空
+  # —— 融合层照跑，只是每次都在拼一个空 retrieved 列表，看起来「生效了」其实没生效。
+  if [ ! -s "$REPO_ROOT/rag/corpus/corpus.jsonl" ] \
+     && [ -f "$REPO_ROOT/rag/corpus/build_corpus.py" ]; then
+    if command -v python3 >/dev/null 2>&1; then
+      echo "  构建检索语料（rag/corpus/corpus.jsonl 不存在）……"
+      ( cd "$REPO_ROOT" && python3 -m rag.corpus.build_corpus ) || true
+    elif command -v python >/dev/null 2>&1; then
+      echo "  构建检索语料（用 python，不是 python3）……"
+      ( cd "$REPO_ROOT" && python -m rag.corpus.build_corpus ) || true
+    fi
+  fi
+  if [ ! -s "$REPO_ROOT/rag/corpus/corpus.jsonl" ]; then
+    echo "  [警告] 检索语料仍然缺失 —— 镜像里的 RAG 会空转（融合层在、检索侧没有内容）。"
+    echo "         先执行：python -m rag.corpus.build_corpus"
+  else
+    echo "  检索语料：$(wc -c <"$REPO_ROOT/rag/corpus/corpus.jsonl" | tr -d ' ') 字节"
+  fi
   cp -a "$REPO_ROOT/rag/." "$CONTEXT/rag/" 2>/dev/null || true
 fi
 if [ -z "$(ls -A "$CONTEXT/rag" 2>/dev/null)" ]; then
