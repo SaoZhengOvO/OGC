@@ -202,16 +202,27 @@ mkdir -p "$CONTEXT/review/$REVIEW_DIR_NAME"
 PY_BIN=""
 command -v python3 >/dev/null 2>&1 && PY_BIN="python3"
 [ -z "$PY_BIN" ] && command -v python >/dev/null 2>&1 && PY_BIN="python"
-if [ -n "$PY_BIN" ]; then
-  if ( cd "$REPO_ROOT" && "$PY_BIN" docs/reports/pack_review.py --team "$TEAM_NAME" \
-        --out "$CONTEXT/review/$REVIEW_DIR_NAME" ) 2>&1 | sed 's/^/  /'; then
-    echo "  专家评审材料：$(find "$CONTEXT/review/$REVIEW_DIR_NAME" -type f | wc -l | tr -d ' ') 个文件 -> /root/$REVIEW_DIR_NAME/"
-  else
-    echo "  [警告] 专家评审材料必需项缺失 —— 见上面 [缺] 行。先跑："
-    echo "         $PY_BIN docs/reports/pack_review.py --team $TEAM_NAME --out deploy/dist/review-package"
-  fi
+if [ -z "$PY_BIN" ]; then
+  echo "  [失败] 找不到 python，无法打包专家评审材料。" >&2
+  echo "         方案完整性 10 + 代码规范性 10 + 平台运行记录 10，共 30 分，材料必须进镜像。" >&2
+  echo "         这里是硬性物料要求，不是建议 —— 缺了就少 30 分，不能让镜像照常构建。" >&2
+  exit 1
+fi
+# 先把输出收进日志再判退出码。原先写成 `if ( ... ) 2>&1 | sed ...; then`，
+# 管道的退出码取的是最后一条命令（sed），几乎永远为 0 —— 于是"必需项缺失"分支实际
+# 不可达，缺材料的镜像会照样构建出来。
+REVIEW_LOG="$REPO_ROOT/deploy/.review-package.log"
+if ( cd "$REPO_ROOT" && "$PY_BIN" docs/reports/pack_review.py --team "$TEAM_NAME" \
+      --out "$CONTEXT/review/$REVIEW_DIR_NAME" ) >"$REVIEW_LOG" 2>&1; then
+  sed 's/^/  /' "$REVIEW_LOG"
+  echo "  专家评审材料：$(find "$CONTEXT/review/$REVIEW_DIR_NAME" -type f | wc -l | tr -d ' ') 个文件 -> /root/$REVIEW_DIR_NAME/"
 else
-  echo "  [警告] 找不到 python，专家评审材料未打包（镜像里会缺 /root/$REVIEW_DIR_NAME）"
+  REVIEW_RC=$?
+  sed 's/^/  /' "$REVIEW_LOG"
+  echo "  [失败] 专家评审材料必需项缺失（pack_review.py 退出码 $REVIEW_RC）—— 见上面 [缺] 行。" >&2
+  echo "         材料不全的镜像不许出厂，先补齐再构建：" >&2
+  echo "         $PY_BIN docs/reports/pack_review.py --team $TEAM_NAME --out deploy/dist/review-package" >&2
+  exit 1
 fi
 
 # 模型权重：优先硬链接（同盘瞬间完成、不额外占空间），失败退回完整复制

@@ -17,9 +17,9 @@
 | `03-reproduce.md` | `docs/reports/reproduce.md` | 从裸机到提交的完整复现步骤（对应代码规范性 10 分） | 已就绪 |
 | `04-review-package.md` | `docs/reports/review-package.md` | 本文件 | 已就绪 |
 | `05-data-quality/` | `data/reports/{train,val}_quality.json`、`dataset_summary.json` | 数据质量核查留档（口径与异常样本 ID） | 已就绪 |
-| `06-leaderboard.tsv` | `runs/leaderboard.tsv` | 每一次评测的指标台账（**不手写，由脚本追加**） | 运行后生成 |
+| `06-leaderboard.tsv` | `runs/leaderboard.tsv`，没有则用入库快照 `docs/reports/leaderboard.tsv` | 每一次评测的指标台账（**不手写，由脚本追加**） | 已就绪（54 行） |
 | `07-platform-log/` | `docs/platform-log/*.md` + `assets/` | **平台运行记录**：每次上机的时间、机型、命令、结果、截图 | **必须从第一天开始记** |
-| `08-code-review.md` | 角色⑤B巡检结论 | 代码规范性自检清单与问题分派 | 待产出 |
+| `08-code-review.md` | `docs/reports/code-review.md` | 代码规范性自检清单与问题分派 | 已就绪 |
 
 ### 两个必须强调的点
 
@@ -29,6 +29,11 @@
 2. **台账不许手写**：`06-leaderboard.tsv` 由 `tools/eval_loop.py` 每次评测追加一行，
    列固定为 `time / tag / backend / model / n_samples / n_comparable / emotion_acc /
    profile_acc / bleu4 / rouge_l / memory_f1`。手抄的数字一旦与产物对不上，专家评审会直接扣分。
+   **但「不手写」不等于「只在一台机器上」**：`runs/` 被 `.gitignore` 排除，而大规模评测跑在
+   AMD 盒子上，本地 `runs/leaderboard.tsv` 只有 9 行、盒子有 45 行——2026-10-17 就是这样，
+   报告里写着 n=2354 的 0.404，评审材料里的台账却停在更早的一行。现在用
+   `tools/merge_leaderboard.py` 合并多机台账，把结果作为快照 `docs/reports/leaderboard.tsv`
+   入库，打包脚本优先用本机最新的、缺失时退回快照。
 
 ## 二、打包脚本
 
