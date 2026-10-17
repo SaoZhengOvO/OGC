@@ -91,14 +91,25 @@ class FallbackTests(unittest.TestCase):
             seen["retrieved"] = retrieved
             return [{"role": "system", "content": "s"}, {"role": "user", "content": "u"}]
 
-        with mock.patch.dict(sys.modules, _fake_rag(spy)):
+        # 角色④交付 rag/retrieve.py 之后，真实检索会返回非空结果，所以必须**显式**钉住
+        # 「检索返回空」这一分支，否则这条测试会随语料变动而飘。
+        package = types.ModuleType("rag")
+        retrieve_mod = types.ModuleType("rag.retrieve")
+        retrieve_mod.retrieve = lambda sample, k=3: []  # type: ignore[attr-defined]
+        package.retrieve = retrieve_mod  # type: ignore[attr-defined]
+        with mock.patch.dict(
+            sys.modules, {**_fake_rag(spy), "rag.retrieve": retrieve_mod, "rag": package}
+        ):
             wiring.build_messages(SAMPLE, OFFICIAL, conversation_text)
         self.assertEqual(seen["retrieved"], [])
 
 
 class RetrieveTests(unittest.TestCase):
     def test_missing_module_returns_empty_list(self) -> None:
-        self.assertEqual(wiring.retrieve_memories(SAMPLE), [])
+        # 用 None 占位让 importlib 抛 ImportError，模拟「rag 包不可导入」。
+        # 不能依赖它真的不存在——④ 已经交付 rag/retrieve.py。
+        with mock.patch.dict(sys.modules, {"rag": None, "rag.retrieve": None}):
+            self.assertEqual(wiring.retrieve_memories(SAMPLE), [])
 
     def test_raising_module_returns_empty_list(self) -> None:
         package = types.ModuleType("rag")
