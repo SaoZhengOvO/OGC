@@ -62,6 +62,13 @@ jobs:
           docker system prune -af || true
           df -h /
 
+      # 构建之前先跑测试。这一步很便宜（十几秒），但它把「能构建」和「测试是绿的」
+      # 绑在一起 —— 原先工作流完全不跑测试，一个把 tests 打红的提交照样能产出可交付镜像。
+      - name: 跑测试
+        run: |
+          python3 -m pip install --quiet -r requirements-dev.txt
+          python3 -m pytest
+
       - name: 拉模型权重（Qwen2.5-3B-Instruct，5.76 GB，支持断点续传）
         run: |
           python3 -V
@@ -100,6 +107,25 @@ jobs:
           echo "path=$OUT" >> "$GITHUB_OUTPUT"
           df -h /
 
+      # 出厂前验一遍镜像内容。2026-10-17 那次就是「构建全绿、镜像能跑」，
+      # 但评审材料里少了一份评测台账 —— 只有把 tar 打开看才会发现。
+      # 这里断言的东西恰好是专家评审要读的路径，缺一个就让构建失败。
+      - name: 检查镜像内容（评审材料 / 入口脚本 / 权重）
+        run: |
+          set -eux
+          python3 tools/inspect_image_tar.py ogc-participant-OGC.tar.gz \
+            --expect /root/participant/start.sh \
+            --expect /root/participant/run_inference.py \
+            --expect /root/participant/model/config.json \
+            --expect /opt/offline_check.sh \
+            --expect "/root/AI技术赛道-数字人综合情感对话模型-${TEAM_NAME}/01-technical-plan.md" \
+            --expect "/root/AI技术赛道-数字人综合情感对话模型-${TEAM_NAME}/02-experiments.md" \
+            --expect "/root/AI技术赛道-数字人综合情感对话模型-${TEAM_NAME}/03-reproduce.md" \
+            --expect "/root/AI技术赛道-数字人综合情感对话模型-${TEAM_NAME}/06-leaderboard.tsv" \
+            --json-out image-inspect.json
+        env:
+          TEAM_NAME: ${{ inputs.team_name }}
+
       - name: 上传镜像产物
         uses: actions/upload-artifact@v4
         with:
@@ -107,6 +133,7 @@ jobs:
           path: |
             ogc-participant-OGC.tar.gz
             ogc-participant-OGC.tar.gz.sha256
+            image-inspect.json
           retention-days: 7
           compression-level: 0   # 已经是 gzip，别让 artifact 再套一层
 
