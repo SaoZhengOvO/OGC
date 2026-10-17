@@ -81,17 +81,38 @@ def _profile_key(row: Dict[str, Any]) -> str:
     return _PROFILE_KEYS[0]
 
 
+def apply_profile_constant(profile: Dict[str, List[str]]) -> Dict[str, List[str]]:
+    """三个维度一律换成先验常量，模型判断一个都不留。
+
+    与 deploy/participant/run_inference.py 的 ``PARTICIPANT_PROFILE_MODE=force``
+    等价。用它的前提是实测过「模型非空标签的命中率低于常量」——2026-10-17 四臂
+    数据显示 B 臂三维 0.0667/0.0467/0.1533，同批常量 0.1233/0.0367/0.1967。
+    """
+    forced = dict(profile)
+    for name, prior in PROFILE_FLOOR_DEFAULTS.items():
+        forced[name] = [prior]
+    return forced
+
+
 def main(argv: List[str]) -> int:
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("--submission", required=True, nargs="+")
-    parser.add_argument("--out", default="", help="单文件时指定输出；多文件时自动加 .floored 后缀")
+    parser.add_argument("--out", default="", help="单文件时指定输出；多文件时自动加后缀")
     parser.add_argument("--stats", action="store_true", help="打印补了多少维")
+    parser.add_argument(
+        "--mode",
+        choices=("floor", "force"),
+        default="floor",
+        help="floor=只补空（默认）；force=三维一律常量",
+    )
     args = parser.parse_args(argv[1:])
 
     single = len(args.submission) == 1
     for src in args.submission:
         path = Path(src)
-        out = Path(args.out) if (single and args.out) else path.with_suffix(".floored.jsonl")
+        suffix = ".constant.jsonl" if args.mode == "force" else ".floored.jsonl"
+        default_out = path.with_suffix(suffix)
+        out = Path(args.out) if (single and args.out) else default_out
 
         rows: Dict[str, Dict[str, Any]] = {}
         dupes = 0
@@ -117,7 +138,7 @@ def main(argv: List[str]) -> int:
             key = _profile_key(row)
             profile = normalize_profile(row.get(key) or {})
             before = {d: bool(profile.get(d)) for d in PROFILE_FLOOR_DEFAULTS}
-            profile = apply_profile_floor(profile)
+            profile = apply_profile_constant(profile) if args.mode == "force" else apply_profile_floor(profile)
             total_dims += len(PROFILE_FLOOR_DEFAULTS)
             filled_dims += sum(1 for d, had in before.items() if not had)
             row[key] = profile

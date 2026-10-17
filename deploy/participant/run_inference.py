@@ -293,10 +293,42 @@ def recover_response_text(text: str) -> str:
     return cleaned
 
 
+def profile_mode() -> str:
+    """画像输出策略。
+
+    - ``floor``（默认）：只补空维度，模型给出的非空标签原样保留。
+    - ``force``：三个维度**一律**输出先验常量，忽略模型判断。
+    - ``off``：完全不动模型输出。
+
+    ``force`` 不是拍脑袋加的口子。2026-10-17 的四臂实测：模型真正给出非空标签的
+    那部分样本，命中率低于拿一个常量去撞 —— B 臂三个维度分别是 0.0667 / 0.0467 /
+    0.1533，而同一批数据上常量是 0.1233 / 0.0367 / 0.1967。也就是说在这一项上
+    「让模型多说」是负收益。官方口径下空数组必判错（GivenData/participant/README.md
+    100-102），所以既不该空着，也不该信模型的标签。
+
+    优先级：``PARTICIPANT_PROFILE_MODE`` 显式指定 > 旧的 ``PARTICIPANT_PROFILE_FLOOR``。
+    """
+    mode = os.environ.get("PARTICIPANT_PROFILE_MODE", "").strip().lower()
+    if mode in {"force", "constant", "const"}:
+        return "force"
+    if mode in {"floor", "fill"}:
+        return "floor"
+    if mode in {"off", "none", "0", "false", "no"}:
+        return "off"
+    return "floor" if profile_floor_enabled() else "off"
+
+
 def profile_floor_enabled() -> bool:
     """画像空位兜底是否开启。默认开，`PARTICIPANT_PROFILE_FLOOR=0/false/no/off` 关闭。"""
     value = os.environ.get("PARTICIPANT_PROFILE_FLOOR", "")
     return value.strip().lower() not in {"0", "false", "no", "off"}
+
+
+def _prior_for(name: str) -> list[str] | None:
+    prior = PROFILE_FLOOR_DEFAULTS.get(name)
+    if prior and prior in PROFILE_LABELS.get(name, ()):
+        return [prior]
+    return None
 
 
 def apply_profile_floor(profile: dict[str, list[str]]) -> dict[str, list[str]]:
@@ -306,12 +338,28 @@ def apply_profile_floor(profile: dict[str, list[str]]) -> dict[str, list[str]]:
     从「必然 0 分」变成「有先验命中率的分」。
     """
     filled = dict(profile)
-    for name, prior in PROFILE_FLOOR_DEFAULTS.items():
+    for name in PROFILE_FLOOR_DEFAULTS:
         if filled.get(name):
             continue
-        if prior in PROFILE_LABELS.get(name, ()):
-            filled[name] = [prior]
+        prior = _prior_for(name)
+        if prior:
+            filled[name] = list(prior)
     return filled
+
+
+def apply_profile_constant(profile: dict[str, list[str]]) -> dict[str, list[str]]:
+    """三个维度一律换成先验常量，模型给出的标签一个都不留。
+
+    上界就是「常量撞命中率」：验证集上 personality_traits 0.1296 /
+    interests 0.0425 / style 0.1907，三维均值 0.1209。任何模型只要这三个维度
+    的实际命中率低于这个数，换成常量就是净赚。
+    """
+    forced = dict(profile)
+    for name in PROFILE_FLOOR_DEFAULTS:
+        prior = _prior_for(name)
+        if prior:
+            forced[name] = list(prior)
+    return forced
 
 
 def normalize_prediction(sample_id: str, raw: dict[str, Any]) -> dict[str, Any]:
@@ -332,7 +380,10 @@ def normalize_prediction(sample_id: str, raw: dict[str, Any]) -> dict[str, Any]:
             and set(values) <= allowed
         )
         clean_profile[name] = values if valid else []
-    if profile_floor_enabled():
+    _mode = profile_mode()
+    if _mode == "force":
+        clean_profile = apply_profile_constant(clean_profile)
+    elif _mode == "floor":
         clean_profile = apply_profile_floor(clean_profile)
     valid_memories = (
         isinstance(memories, list)
