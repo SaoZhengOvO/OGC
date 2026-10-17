@@ -363,6 +363,22 @@ def parse_prediction(sample_id: str, decoded: str) -> tuple[dict[str, Any], bool
     return normalize_prediction(sample_id, raw_prediction), parse_failed
 
 
+def needs_schema_retry(prediction: dict[str, Any], parse_failed: bool) -> bool:
+    """判断一次输出是否属于「schema 塌陷」，值得重试一次。
+
+    角色③在 n=300 上归因：空回复 26 条里 18 条顶层只吐画像三数组、4 条只吐 `{}`，
+    与 `parse_failure` 集合**零交集**——所以只判 `parse_failed` 会漏掉绝大多数。
+    判据取「解出来的 JSON 里没有可用的 response_text 或 emotion_label」。
+    """
+    if parse_failed:
+        return True
+    if not isinstance(prediction, dict):
+        return True
+    if not str(prediction.get("response_text") or "").strip():
+        return True
+    return not str(prediction.get("emotion_label") or "").strip()
+
+
 def synchronize(torch_module: Any) -> None:
     if torch_module.cuda.is_available():
         torch_module.cuda.synchronize()
@@ -470,6 +486,20 @@ def main() -> None:
             _min_new_tokens = min(_min_new_tokens, _max_new_tokens)
         generation["min_new_tokens"] = _min_new_tokens
 
+    # 输出塌陷重试（角色③ 在 n=300 上归因出来的：空回复不是解析失败，而是模型
+    # 偶发丢失 JSON schema——26 条里 18 条顶层只吐画像三数组、4 条只吐 `{}`）。
+    # 代价：只对崩掉的样本多跑一次，崩掉率约 1%，可忽略；换回的是情绪与画像两项
+    # 不因同一条样本一起判错。设 PARTICIPANT_SCHEMA_RETRY=0 可关。
+    try:
+        SCHEMA_RETRY = int(os.environ.get("PARTICIPANT_SCHEMA_RETRY", "1") or 1)
+    except (TypeError, ValueError):
+        SCHEMA_RETRY = 1
+    SCHEMA_REMINDER = (
+        "你上一条输出不符合要求：缺少 response_text 或 emotion_label。"
+        "请只输出一个 JSON 对象，必须同时包含 response_text 与 emotion_label 两个字段，"
+        "不要输出 json 之外的任何文字，不要输出 ``` 代码围栏。"
+    )
+
     # transformers 5.x 把 min_new_tokens 从 generate() 的签名里删掉了：
     #   inspect.signature(GenerationMixin.generate) 里没有它
     # 所以 `model.generate(**inputs, **generation)` 会把它当未知 kwargs **静默丢弃**，
@@ -512,26 +542,33 @@ def main() -> None:
             messages = wiring.build_messages(sample, system_prompt, conversation_text)
         else:
             messages = [{"role": "system", "content": system_prompt}, {"role": "user", "content": conversation_text(sample)}]
-        if backend == "transformers":
-            prompt = tokenizer.apply_chat_template(messages, tokenize=False, add_generation_prompt=True)
-            synchronize(torch)
-            started = time.perf_counter()
-            inputs = tokenizer(prompt, return_tensors="pt")
-            input_device = next(model.parameters()).device
-            inputs = {name: tensor.to(input_device) for name, tensor in inputs.items()}
-            with torch.inference_mode():
-                if _gen_cfg is not None:
-                    # 走 GenerationConfig：把模型自带的 eos/pad 等设置一起带上，
-                    # 只覆盖 generation 里显式给的键 + min_new_tokens。
-                    output_ids = model.generate(**inputs, generation_config=_gen_cfg)
-                else:
-                    output_ids = model.generate(**inputs, **generation)
-            generated = output_ids[0, inputs["input_ids"].shape[1]:]
-            decoded = tokenizer.decode(generated, skip_special_tokens=True)
-        else:
-            started = time.perf_counter()
-            decoded = request_chat_completion(config, messages, generation)
-        prediction, parse_failed = parse_prediction(sample["id"], decoded)
+        started = time.perf_counter()
+        # 输出塌陷重试：模型偶发只吐画像三数组或干脆输出 {}，此时 response_text 与
+        # emotion_label 都是空的，两项一起判错。重试一次、追加一条硬约束提醒，比换提示词便宜得多。
+        attempts = 1 + max(0, SCHEMA_RETRY)
+        for attempt in range(attempts):
+            if attempt:
+                messages = messages + [{"role": "user", "content": SCHEMA_REMINDER}]
+            if backend == "transformers":
+                prompt = tokenizer.apply_chat_template(messages, tokenize=False, add_generation_prompt=True)
+                synchronize(torch)
+                inputs = tokenizer(prompt, return_tensors="pt")
+                input_device = next(model.parameters()).device
+                inputs = {name: tensor.to(input_device) for name, tensor in inputs.items()}
+                with torch.inference_mode():
+                    if _gen_cfg is not None:
+                        # 走 GenerationConfig：把模型自带的 eos/pad 等设置一起带上，
+                        # 只覆盖 generation 里显式给的键 + min_new_tokens。
+                        output_ids = model.generate(**inputs, generation_config=_gen_cfg)
+                    else:
+                        output_ids = model.generate(**inputs, **generation)
+                generated = output_ids[0, inputs["input_ids"].shape[1]:]
+                decoded = tokenizer.decode(generated, skip_special_tokens=True)
+            else:
+                decoded = request_chat_completion(config, messages, generation)
+            prediction, parse_failed = parse_prediction(sample["id"], decoded)
+            if not needs_schema_retry(prediction, parse_failed) or attempt + 1 >= attempts:
+                break
         if parse_failed:
             parse_failure_ids.append(sample["id"])
         if backend == "transformers":
