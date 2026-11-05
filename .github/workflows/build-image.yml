@@ -134,7 +134,9 @@ jobs:
             ogc-participant-OGC.tar.gz
             ogc-participant-OGC.tar.gz.sha256
             image-inspect.json
-          retention-days: 7
+          # 7 天太短了：10-17 那次构建的产物到 11-05 已经过期被清，8.2 GB 的 tar 想下也没有。
+          # 交付窗口跨到 11-10，留 30 天。
+          retention-days: 30
           compression-level: 0   # 已经是 gzip，别让 artifact 再套一层
 
       - name: 推送到 ghcr.io（可选）
