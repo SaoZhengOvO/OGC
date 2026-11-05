@@ -155,6 +155,19 @@ def load_config() -> dict[str, Any]:
             raise ValueError("api_options 必须为 JSON object")
     if not isinstance(config["performance_rounds"], int) or config["performance_rounds"] <= 0:
         raise ValueError("performance_rounds 必须为正整数")
+    # 放在必填校验之后：校验没过时不该被这个覆盖悄悄补出一个 generation 段。
+    # 上限只用于离线自检这类「只要证明链路通」的场景 —— 纯 CPU 上一条样本实测 928 秒，
+    # 3 条样例必然撑爆自检超时；压到几十个 token 后每条约 1 分钟，产物与结构照样能验。
+    # 官方评测不设这个变量，行为不变。
+    _capped = os.environ.get("EVALUATION_MAX_NEW_TOKENS", "").strip()
+    if _capped:
+        try:
+            _value = int(_capped)
+        except ValueError as exc:
+            raise ValueError(f"EVALUATION_MAX_NEW_TOKENS 必须是整数: {_capped!r}") from exc
+        if _value <= 0:
+            raise ValueError(f"EVALUATION_MAX_NEW_TOKENS 必须为正数: {_capped!r}")
+        config["generation"] = {**config["generation"], "max_new_tokens": _value}
     return config
 
 

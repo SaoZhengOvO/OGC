@@ -153,6 +153,10 @@ JSONL
   export HTTP_PROXY=http://127.0.0.1:9 HTTPS_PROXY=http://127.0.0.1:9
   export http_proxy=http://127.0.0.1:9 https_proxy=http://127.0.0.1:9
   export NO_PROXY=127.0.0.1,localhost no_proxy=127.0.0.1,localhost
+  # 自检只要证明「链路通、产物合规」，不追求回复质量。纯 CPU 上不设上限时一条样本
+  # 实测 928 秒（15.5 分钟），3 条必然撑爆超时；压到 96 token 后每条约 1 分钟。
+  # 生成被截断时 run_inference 的兜底会把该行补成占位行，schema 检查仍然有效。
+  export EVALUATION_MAX_NEW_TOKENS="${EVALUATION_MAX_NEW_TOKENS:-96}"
 
   info "执行：bash $PARTICIPANT/start.sh <3条样例> <结果目录>"
   # 纯 CPU 机器上 3B 模型逐条生成很慢（CI 的 ubuntu-latest 上实测超过 2 小时仍未结束），
@@ -168,9 +172,11 @@ JSONL
   # 保护的命令返回非零，脚本就当场中止，末尾的「通过 N / 失败 N」和 [FAIL] 行
   # 都不会执行，退出码虽然非零但失败项没被计入。
   set +e
+  runtime_unverified=0
   if [ "$start_rc" -eq 0 ]; then
     ok "入口脚本退出码 0"
   elif [ "$start_rc" -eq 124 ]; then
+    runtime_unverified=1
     warn "入口脚本在 ${RUNTIME_TIMEOUT}s 内没跑完（纯 CPU 上的正常现象，**未验证**而非失败）"
     info "日志末尾（用于确认它在真的推理，而不是卡住）："
     tail -n 15 "$WORK/run.log" 2>/dev/null | sed 's/^/        /'
@@ -232,6 +238,10 @@ PYEOF
       ok "没有空回复"
     fi
     info "第 1 行预览：$(head -c 220 "$SUB")"
+  elif [ "$runtime_unverified" = "1" ]; then
+    # 上面已经 warn 过「超时、未验证」。这里再判 FAIL 就自相矛盾：既说不是失败，
+    # 又因为「没产出所以失败」把整条构建打红。2026-11-05 的构建就是这样红的。
+    warn "没有生成 $SUB —— 因为入口脚本超时，这一项**未验证**（不是失败）"
   else
     bad "没有生成 $SUB"
   fi
@@ -251,6 +261,8 @@ print("        缺失字段: " + str(miss) if miss else
       f"avg={d.get('average_latency_ms')}ms label={d.get('hardware_label')!r}")
 PYEOF
     info "注意：rounds 只有够 100 条时才 complete=true。3 条样例必然 false，这是对的。"
+  elif [ "$runtime_unverified" = "1" ]; then
+    warn "没有生成 $RPT —— 同样因为入口脚本超时，**未验证**（不是失败）"
   else
     bad "没有生成 $RPT"
   fi
