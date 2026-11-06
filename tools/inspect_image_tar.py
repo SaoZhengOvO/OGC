@@ -33,6 +33,7 @@
 from __future__ import annotations
 
 import argparse
+import contextlib
 import gzip
 import hashlib
 import json
@@ -72,6 +73,19 @@ def _norm(name: str) -> str:
 _BLOB_LAYER = re.compile(r"^blobs/sha256/[0-9a-f]{64}$")
 
 
+@contextlib.contextmanager
+def _open_maybe_gzip(path: Path):
+    """按魔数决定要不要解 gzip：`build.sh --tar` 产出 .tar.gz，但直接 `docker save` 的是裸 tar。"""
+    with path.open("rb") as raw:
+        magic = raw.read(2)
+    if magic == b"\x1f\x8b":
+        with gzip.open(path, "rb") as stream:
+            yield stream
+    else:
+        with path.open("rb") as stream:
+            yield stream
+
+
 def _is_layer(name: str, layer_names: set[str] | None = None) -> bool:
     """判断外层 tar 里的这个成员是不是镜像层。
 
@@ -96,10 +110,16 @@ def _walk_layer(fileobj, *, collect: dict[str, dict], keep_bytes: set[str]) -> i
     """把一层当 tar 读，记录成员；需要比对的成员把内容抓出来。
 
     不是 tar（比如 OCI 布局里的 config blob 是 JSON）返回 None，调用方据此跳过。
+
+    `mode="r|*"` 的星号不能省：OCI 布局里层的媒体类型通常是
+    `application/vnd.oci.image.layer.v1.tar+gzip`，层自己就是 gzip 的。
+    只写 `r|` 会拿压缩字节当 tar 解析、直接抛 TarError，于是每一层都被判成
+    「不是层」—— 2026-11-05 的构建 run `42051248129` 就是这样报「0 层」，
+    21 项检查全 FAIL，看着像镜像坏了，其实是工具把这版的层格式漏了。
     """
     count = 0
     try:
-        inner = tarfile.open(fileobj=fileobj, mode="r|")
+        inner = tarfile.open(fileobj=fileobj, mode="r|*")
     except tarfile.TarError:
         return None
     for member in inner:
@@ -149,8 +169,8 @@ def inspect(path: Path, *, expect_dir: Path | None) -> dict:
     layer_index = 0
     layer_names: set[str] = set()
 
-    with gzip.open(path, "rb") as gz:
-        outer = tarfile.open(fileobj=gz, mode="r|")
+    with _open_maybe_gzip(path) as stream:
+        outer = tarfile.open(fileobj=stream, mode="r|")
         for member in outer:
             name = _norm(member.name)
             if name == "manifest.json":
@@ -166,7 +186,12 @@ def inspect(path: Path, *, expect_dir: Path | None) -> dict:
                 before = len(collect)
                 members_in_layer = _walk_layer(handle, collect=collect, keep_bytes=wanted)
                 if members_in_layer is None:
-                    # 不是 tar（OCI 布局里的 config blob 就是 JSON），跳过
+                    # 不是 tar（OCI 布局里的 config blob 就是 JSON），跳过。
+                    # 但要留下证据：万一真的是「层读不开」，光看「0 层」无从下手，
+                    # 而一次真镜像构建要 40 分钟 —— 这行诊断就是为了不白烧下一轮。
+                    result.setdefault("skipped_candidates", []).append(
+                        {"name": name, "size": member.size}
+                    )
                     continue
                 result["layers"].append(
                     {"index": layer_index, "name": name, "size": member.size,
@@ -288,6 +313,16 @@ def main(argv=None) -> int:
     for item in result["checks"]:
         mark = "OK  " if item["ok"] else "FAIL"
         print(f"  [{mark}] {item['check']} —— {item['detail']}")
+
+    # 0 层时最需要的是「为什么」：候选 blob 都在，但一个都打不开 tar。
+    # 不把这条打出来，日志里只剩「至少一层 —— 0 层」，看不出是层是 gzip 还是格式又变了。
+    skipped = result.get("skipped_candidates") or []
+    if not result["layers"]:
+        print("\n被跳过的候选 blob（打开失败 = 不是 tar）：")
+        for item in skipped:
+            print(f"  {item['name']}  {item['size'] / 1024**3:.3f} GB")
+        if not skipped:
+            print("  （一个候选都没有 —— 可能是外层成员命名格式又变了）")
 
     if args.json_out:
         Path(args.json_out).write_text(

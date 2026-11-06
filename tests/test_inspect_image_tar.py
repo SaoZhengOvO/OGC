@@ -137,14 +137,23 @@ def test_byte_compare_records_image_sha(tmp_path: Path) -> None:
     assert result["members"]["root/participant/prompts/response.md"]["sha256"] == expected
 
 
-def _oci_image(path: Path, *, layer_files: dict[str, bytes], layer_digest: str) -> Path:
+def _oci_image(
+    path: Path,
+    *,
+    layer_files: dict[str, bytes],
+    layer_digest: str,
+    compress_layer: bool = False,
+) -> Path:
     """按新版 docker save 的 OCI 布局造镜像。
 
-    真镜像的两个特征都在这里复现：层名是 `blobs/sha256/<64 位十六进制>`（**没有 .tar
-    后缀**），而且 blobs 写在 manifest.json 前面 —— 流式读的时候，读到层时 manifest
-    还没出现。2026-10-17 就是因为这两点，检查一个完好镜像时报了 0 层、所有项全 FAIL。
+    真镜像的三个特征都在这里复现：层名是 `blobs/sha256/<64 位十六进制>`（**没有 .tar
+    后缀**），blobs 写在 manifest.json 前面 —— 流式读的时候，读到层时 manifest 还没
+    出现；而且层本身是 gzip 的（OCI 层的标准媒体类型就是 `...layer.v1.tar+gzip`）。
+    2026-10-17 前两点让检查报 0 层，2026-11-05 第三点又让检查报了一次 0 层。
     """
     layer = _tar_bytes(layer_files)
+    if compress_layer:
+        layer = gzip.compress(layer)
     config_digest = "b" * 64
     buf = io.BytesIO()
     with tarfile.open(fileobj=buf, mode="w") as outer:
@@ -204,3 +213,42 @@ def test_expect_flag_is_honored_and_not_abbreviated(tmp_path: Path, capsys) -> N
 
     assert main([str(image), "--expect", "/root/根本不存在的路径"]) == 1
     assert "/root/根本不存在的路径" in capsys.readouterr().out
+
+def test_gzip_compressed_oci_layer_is_detected(tmp_path: Path) -> None:
+    """层自身被 gzip 过（OCI 的标准媒体类型）时也要认出来。
+
+    2026-11-05 的构建 run `42051248129` 就栽在这里：`blobs/sha256/<hex>` 能认成候选，
+    但 `tarfile.open(mode="r|")` 拿 gzip 字节当裸 tar 解析、抛 TarError，于是每一层都
+    被判成「不是层」，21 项检查全 FAIL。改 `mode="r|*"` 后靠 tarfile 自己做压缩探测。
+    """
+    digest = "d" * 64
+    image = _oci_image(
+        tmp_path / "oci-gz.tar.gz",
+        layer_files=_good_layer(),
+        layer_digest=digest,
+        compress_layer=True,
+    )
+    result = inspect(image, expect_dir=REPO_ROOT)
+    assert len(result["layers"]) == 1, "gzip 压缩的层必须仍被算作一层"
+    assert "root/participant/start.sh" in result["members"]
+    # 逐字节比对也要过 —— 层解压失败时这里会全军覆没
+    checks = _checks(result)
+    assert checks["比对 root/participant/start.sh"]
+
+
+def test_plain_tar_without_gzip_is_accepted(tmp_path: Path) -> None:
+    """`docker save` 直接产的裸 tar 也要能读（`--tar` 才会 gzip）。"""
+    digest = "e" * 64
+    packed = _oci_image(
+        tmp_path / "oci-inner.tar.gz",
+        layer_files=_good_layer(),
+        layer_digest=digest,
+        compress_layer=True,
+    )
+    raw = gzip.decompress(packed.read_bytes())
+    plain = tmp_path / "oci-plain.tar"
+    plain.write_bytes(raw)
+
+    result = inspect(plain, expect_dir=REPO_ROOT)
+    assert len(result["layers"]) == 1
+    assert "root/participant/start.sh" in result["members"]
