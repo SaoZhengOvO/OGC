@@ -1,13 +1,34 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+PYTHON_CMD="${PYTHON_BIN:-python3}"
+
 # 官方原件这一行是 `source activate conda_env`，注释写着「名称固定，不要修改」。
 # 说明官方运行时里一定存在这个 conda 环境。但我们的镜像不一定有 conda，
 # 而 set -euo pipefail 会让失败的那一行**直接终止整个脚本**——那等于零分。
-# 所以改成：有 conda 就进 conda_env（行为与官方一致），没有就用 PATH 上的 python3。
+#
+# 实测踩到的坑（咪咕平台实例，2026-11-06）：宿主机有 `/opt/conda/bin/conda`，
+# 但非交互 shell 里 `source activate` 根本不是命令（activate 是交互式 init 脚本
+# 才定义的函数），于是走到「改用 python3」，而系统 python3 是 3.10 裸环境、
+# 没有 torch，直接 ModuleNotFoundError。所以这里必须：先 conda.sh 正规激活，
+# 失败就退到 conda_env 的**绝对路径解释器**，最后才退到 PATH 上的 python3。
 if command -v conda >/dev/null 2>&1; then
-  # shellcheck disable=SC1091
-  if ! source activate conda_env 2>/dev/null; then
+  _ACTIVATED=0
+  for _conda_sh in \
+    "${CONDA_PREFIX:-}/etc/profile.d/conda.sh" \
+    /opt/conda/etc/profile.d/conda.sh \
+    "${HOME:-/root}/miniconda3/etc/profile.d/conda.sh" \
+    "${HOME:-/root}/anaconda3/etc/profile.d/conda.sh"; do
+    if [[ -f "$_conda_sh" ]] && source "$_conda_sh" 2>/dev/null && conda activate conda_env 2>/dev/null; then
+      _ACTIVATED=1
+      PYTHON_CMD=python
+      break
+    fi
+  done
+  if ((_ACTIVATED == 0)) && [[ -z "${PYTHON_BIN:-}" ]] && [[ -x /opt/conda/envs/conda_env/bin/python ]]; then
+    PYTHON_CMD=/opt/conda/envs/conda_env/bin/python
+    echo "[start.sh] conda 激活失败，改用 $PYTHON_CMD" >&2
+  elif ((_ACTIVATED == 0)); then
     echo "[start.sh] 警告：检测到 conda 但 conda_env 激活失败，改用当前 PATH 上的 python3" >&2
   fi
 else
@@ -22,7 +43,6 @@ HOST="${VLLM_HOST:-127.0.0.1}"
 PORT="${VLLM_PORT:-8000}"
 API_KEY="${VLLM_API_KEY:-}"
 START_TIMEOUT="${VLLM_START_TIMEOUT:-600}"
-PYTHON_CMD="${PYTHON_BIN:-python3}"
 VLLM_BIN="${VLLM_BIN:-vllm}"
 # 官方原件的默认是 `VLLM_ARGS=(--tensor-parallel-size 2)`，那是双卡配置。
 # 咪咕仝学平台的算力市场**只有 RTX 4090 一种卡**，我们按 1 卡申请（250 AIQ/小时，
