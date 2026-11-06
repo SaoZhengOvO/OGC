@@ -492,6 +492,29 @@ def main() -> None:
             raise RuntimeError("请先安装 participant/requirements.txt") from exc
 
         trust_remote_code = bool(config.get("trust_remote_code", False))
+
+        # 平台可能不给 GPU，或者驱动版本不匹配让 cuda.is_available() 静默变 False。
+        # 这时 torch_dtype="auto" 会按 model config 的 bfloat16 加载；x86 上没有
+        # AVX512-BF16 的机器跑 bf16 会慢好几倍。镜像内离线自检实测 CPU 单条
+        # 119 s（见 docs/platform-log/），足够把整轮测评拖到超时。
+        # 所以：CPU 模式下改 float32 + 按核数开线程，并把结果记进报告。
+        _dtype = config.get("torch_dtype", "auto")
+        _cpu_mode = not torch.cuda.is_available()
+        if _cpu_mode:
+            _threads = int(os.environ.get("EVALUATION_CPU_THREADS", "0") or 0) or (os.cpu_count() or 8)
+            try:
+                torch.set_num_threads(_threads)
+            except Exception:  # noqa: BLE001 - 线程数设不上不影响正确性
+                pass
+            if str(_dtype).lower() in {"auto", "bfloat16", "bf16"}:
+                _dtype = "float32"
+            print(f"[device] CUDA 不可用 -> CPU 推理 threads={_threads} dtype={_dtype}", flush=True)
+        else:
+            try:
+                print(f"[device] CUDA 可用 -> {torch.cuda.get_device_name(0)} dtype={_dtype}", flush=True)
+            except Exception:  # noqa: BLE001
+                print("[device] CUDA 可用", flush=True)
+
         model_config = AutoConfig.from_pretrained(
             local_model,
             trust_remote_code=trust_remote_code,
@@ -508,7 +531,7 @@ def main() -> None:
             trust_remote_code=trust_remote_code,
             local_files_only=True,
             device_map=config.get("device_map", "auto"),
-            torch_dtype=config.get("torch_dtype", "auto"),
+            torch_dtype=_dtype,
         )
         model.eval()
         backend_report = {
@@ -517,6 +540,9 @@ def main() -> None:
             "model_path_name": local_model.name,
             "model_type": model_config.model_type,
             "model_loader": model_loader.__name__,
+            # 跑在 GPU 还是 CPU、用什么 dtype，直接决定延迟量级；出问题时要能一眼看到。
+            "execution_device": "cpu" if _cpu_mode else "cuda",
+            "execution_dtype": str(_dtype),
         }
     else:
         backend_report = {
@@ -527,16 +553,17 @@ def main() -> None:
         }
 
     samples = read_jsonl(test_file)
-    submission_path = result_dir / "submission.jsonl"
-    # 先写 .partial，全部跑完再原子改名。
+    # 逐条写 submission.jsonl 并 flush。
     #
-    # 旧写法是「开头把 submission.jsonl 截断成空，之后逐条 append」。两个问题：
-    # 1. 中途崩掉会留下半截文件，而评测方如果只读 RESULT_DIR 不看退出码，就会拿
-    #    缺行的结果去算分（分母变小、分数虚高，且没人知道发生过什么）；
-    # 2. 10-16 那次两个 run_inference 并发写同一个文件，2545 行里 191 个重复 id
-    #    —— 截断是开的、append 是各自持有的，交错了。
-    partial_path = result_dir / "submission.jsonl.partial"
-    partial_path.write_text("", encoding="utf-8")
+    # 之前的写法是「写 .partial，全部跑完再原子改名」，好处是中途崩掉不会留半截文件；
+    # 代价是**被外部超时杀掉时磁盘上什么都没有**——平台只看到「推理阶段失败」，前面
+    # 跑了多少条全白费。2026-11-06 那次测评就死在 25%。
+    #
+    # 现在的取舍：文件名从一开始就是 submission.jsonl，每写一行 flush 一次。
+    # 被 kill 时留下的是「前 N 条合法行」，评测方按 id 匹配，缺的判错、有的照算，
+    # 比零产出好。并发风险由调用侧保证（平台只起一个进程），行级写入不会半行。
+    submission_path = result_dir / "submission.jsonl"
+    submission_handle = submission_path.open("w", encoding="utf-8")
     latencies: list[float] = []
     predictions: list[dict[str, Any]] = []
     parse_failure_ids: list[str] = []
@@ -683,13 +710,11 @@ def main() -> None:
         if index <= config["performance_rounds"]:
             latencies.append(elapsed_ms)
         predictions.append(prediction)
-        with partial_path.open("a", encoding="utf-8") as handle:
-            handle.write(json.dumps(prediction, ensure_ascii=False, separators=(",", ":")) + "\n")
+        submission_handle.write(json.dumps(prediction, ensure_ascii=False, separators=(",", ":")) + "\n")
+        submission_handle.flush()
         print(f"[{index}/{len(samples)}] {sample['id']}: {elapsed_ms:.3f} ms", flush=True)
 
-    # 全部写完才原子改名：中途崩掉时 submission.jsonl 不会出现半截文件，
-    # 只会留下一个看得见的 .partial。
-    os.replace(partial_path, submission_path)
+    submission_handle.close()
 
     # 空回复单独计数：parse_failure 只覆盖「解不出 JSON」，解出来了但 response_text
     # 是空串的样本不会进 parse_failure_ids，却是实打实的 0 分。

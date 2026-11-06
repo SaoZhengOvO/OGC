@@ -10,7 +10,7 @@
   "request_timeout_seconds": 600,
   "api_options": {},
   "generation": {
-    "max_new_tokens": 1200,
+    "max_new_tokens": 384,
     "do_sample": false,
     "temperature": 1.0,
     "top_p": 1.0
