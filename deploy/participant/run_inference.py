@@ -86,7 +86,11 @@ def parse_args() -> argparse.Namespace:
 
 def read_jsonl(path: Path) -> list[dict[str, Any]]:
     rows: list[dict[str, Any]] = []
-    with path.open(encoding="utf-8") as handle:
+    # utf-8-sig 而不是 utf-8：带 BOM 的文件用 utf-8 读会在第 1 行抛
+    # "Unexpected UTF-8 BOM"，整个评测直接判失败（我们自己的测试文件就中过招，
+    # 2026-11-06 的推理阶段失败也把它列为待排除项）。utf-8-sig 对无 BOM 的文件
+    # 行为与 utf-8 完全一致，只是多吞掉开头那三个字节，没有副作用。
+    with path.open(encoding="utf-8-sig") as handle:
         for number, line in enumerate(handle, 1):
             if not line.strip():
                 continue
