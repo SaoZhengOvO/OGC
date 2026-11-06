@@ -128,6 +128,9 @@ jobs:
 
       - name: 上传镜像产物
         uses: actions/upload-artifact@v4
+        # always()：检查失败时也要把 tar 传上来。一轮构建 40 分钟，检查挂了却拿不到
+        # 产物，就只能再烧一轮去调工具 —— 11-05 的 run 42051248129 就是这样白丢的。
+        if: always()
         with:
           name: ogc-participant-image
           path: |
